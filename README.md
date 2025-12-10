@@ -1,15 +1,19 @@
 # Voyla OLAP Database Project
 
-An OLAP (Online Analytical Processing) database implementation for voyla.world that enables analytical queries across user behavior, content, places, and properties.
+An OLAP (Online Analytical Processing) database implementation for voyla.world
+that enables analytical queries across user behavior, content, places, and
+properties.
 
 ## Project Description
 
 This project implements a complete data warehouse solution that:
 
-1. **Extracts** data from an OLTP (Online Transaction Processing) source database
+1. **Extracts** data from an OLTP (Online Transaction Processing) source
+   database
 2. **Transforms** the data into a star schema optimized for analytics
 3. **Loads** the processed data into an OLAP PostgreSQL database
-4. **Visualizes** insights via a dashboard showing user clusters based on content, place, and property dimensions
+4. **Visualizes** insights via a dashboard showing user clusters based on
+   content, place, and property dimensions
 
 ### Architecture
 
@@ -18,7 +22,8 @@ The OLAP schema uses a star schema design with:
 - **Fact Table:** Central table linking users, content, places, and properties
 - **Dimension Tables:**
   - `users` - User information
-  - `content` - Post/content data (likes, upload time, comments, social media metrics)
+  - `content` - Post/content data (likes, upload time, comments, social media
+    metrics)
   - `places` - Geographic locations (generated via GenAI and Google Maps API)
   - `property` - Property/listing information
 
@@ -31,34 +36,23 @@ For a visual overview, see `sql/OLAP schema.jpg`
 - Python 3.13 or higher
 - PostgreSQL (for OLAP database)
 - Git
+- [uv for python dependency management](https://docs.astral.sh/uv/#installation)
 
 ### Installation
 
 1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/sanchitram1/215-project-part-2.git
-   cd 215-project-part-2
-   ```
+```bash git clone https://github.com/sanchitram1/215-project-part-2.git cd
+215-project-part-2 ```
 
 2. **Set up Python environment with uv:**
-   ```bash
-   # Install dependencies
-   uv sync
-   ```
+```bash # Install dependencies uv sync ```
 
 3. **Configure database connection:**
-   Create a `.env` file in the project root (or set environment variables):
-   ```
-   DB_HOST=localhost
-   DB_USER=postgres
-   DB_PASSWORD=your_password
-   DB_NAME=olap_db
-   ```
+Create a `.env` file in the project root (or set environment variables): ```
+DB_HOST=localhost DB_USER=postgres DB_PASSWORD=your_password DB_NAME=olap_db ```
 
 4. **Initialize the OLAP database schema:**
-   ```bash
-   psql -U postgres -d olap_db -f sql/schema.sql
-   ```
+```bash psql -U postgres -d olap_db -f sql/schema.sql ```
 
 ## Usage
 
@@ -133,7 +127,8 @@ uv add package_name
 ## Core Modules
 
 ### pipeline/extract.py
-Handles connection to OLTP source database and retrieves raw data. Returns pandas DataFrames with unmodified source data.
+Handles connection to OLTP source database and retrieves raw data. Returns
+pandas DataFrames with unmodified source data.
 
 ### pipeline/transform.py
 Applies business logic and data transformation:
@@ -184,7 +179,8 @@ See `AGENTS.md` for detailed coding standards including:
 **Database Connection Error:**
 - Verify PostgreSQL is running
 - Check `.env` file has correct credentials
-- Ensure OLAP database is created: `psql -U postgres -c "CREATE DATABASE olap_db"`
+- Ensure OLAP database is created: `psql -U postgres -c "CREATE DATABASE
+  olap_db"`
 
 **Import Errors:**
 - Run `uv sync` to ensure dependencies are installed
@@ -222,4 +218,5 @@ Project for UC Berkeley CS 215
 
 ## Support
 
-For questions about coding standards or development workflow, refer to `AGENTS.md`. For database schema details, see `sql/OLAP schema.jpg`.
+For questions about coding standards or development workflow, refer to
+`AGENTS.md`. For database schema details, see `sql/OLAP schema.jpg`.
