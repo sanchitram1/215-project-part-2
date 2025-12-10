@@ -214,7 +214,7 @@ python -m dashboard  # Or specific dashboard command when available
 
 ## License
 
-Project for UC Berkeley CS 215
+Project for UC Berkeley IND ENG 215
 
 ## Support
 
