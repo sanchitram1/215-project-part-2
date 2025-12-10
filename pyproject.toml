@@ -8,4 +8,6 @@ dependencies = [
     "numpy>=2.3.5",
     "pandas>=2.3.3",
     "psycopg2>=2.9.11",
+    "pytest>=9.0.2",
+    "ruff>=0.14.8",
 ]
