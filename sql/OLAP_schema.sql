@@ -70,8 +70,8 @@ CREATE TABLE property (
 
 CREATE INDEX idx_property_category ON property(category_type);
 
--- 5. User_Content Fact Table
-CREATE TABLE user_content (
+-- 5. interactions Fact Table
+CREATE TABLE interactions (
     user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
     content_id UUID NOT NULL REFERENCES content(content_id) ON DELETE CASCADE,
     place_id UUID NOT NULL REFERENCES places(place_id) ON DELETE CASCADE,
@@ -81,8 +81,8 @@ CREATE TABLE user_content (
     PRIMARY KEY (user_id, content_id, place_id, property_id)
 );
 
-CREATE INDEX idx_user_content_user ON user_content(user_id);
-CREATE INDEX idx_user_content_content ON user_content(content_id);
-CREATE INDEX idx_user_content_place ON user_content(place_id);
-CREATE INDEX idx_user_content_property ON user_content(property_id);
-CREATE INDEX idx_user_content_created ON user_content(created_at);
+CREATE INDEX idx_interactions_user ON interactions(user_id);
+CREATE INDEX idx_interactions_content ON interactions(content_id);
+CREATE INDEX idx_interactions_place ON interactions(place_id);
+CREATE INDEX idx_interactions_property ON interactions(property_id);
+CREATE INDEX idx_interactions_created ON interactions(created_at);
