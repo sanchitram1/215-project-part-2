@@ -10,14 +10,13 @@ will change output structure. It's fine for now, but in case the
 schema changes frequently, this will break
 """
 
-import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from urllib.parse import urlparse
 
 import pandas as pd
 import psycopg2
 from dotenv import load_dotenv
 
+from pipeline.database import get_oltp_connection_params
 from pipeline.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -33,42 +32,6 @@ TABLES_TO_EXTRACT = [
     "property_mapping",
     "user_contents",
 ]
-
-
-def _parse_database_url(url: str) -> dict:
-    """
-    Parse PostgreSQL connection URL into psycopg2 params.
-
-    Args:
-        url: PostgreSQL connection URL
-        (postgresql://user:password@host:port/dbname)
-        NOTE it pulls this from .env file
-
-    Returns:
-        Dictionary with keys: host, user, password, port, database
-
-    Raises:
-        ValueError: If URL format is invalid
-    """
-    try:
-        logger.debug("Parsing database URL")
-        parsed = urlparse(url)
-
-        # Validate URL has required components
-        if not parsed.scheme or not parsed.hostname or not parsed.path:
-            raise ValueError("URL must have scheme, hostname, and database name")
-
-        return {
-            "host": parsed.hostname,
-            "user": parsed.username,
-            "password": parsed.password,
-            "port": parsed.port or 5432,
-            "database": parsed.path.lstrip("/"),
-        }
-    except ValueError:
-        raise
-    except Exception as e:
-        raise ValueError(f"Invalid database URL format: {e}")
 
 
 def extract_table(table_name: str, conn_params: dict) -> tuple[str, pd.DataFrame]:
@@ -124,16 +87,8 @@ def extract_all() -> dict[str, pd.DataFrame]:
         ValueError: If OLTP_DATABASE_URL not set or parsing fails
         psycopg2.Error: If any table extraction fails
     """
-    # Load database URL from environment
-    db_url = os.getenv("OLTP_DATABASE_URL")
-    if not db_url:
-        raise ValueError(
-            "OLTP_DATABASE_URL not set in environment. "
-            "Check .env file and load it before running."
-        )
-
-    # Parse connection parameters
-    conn_params = _parse_database_url(db_url)
+    # Get connection parameters from environment
+    conn_params = get_oltp_connection_params()
 
     # Extract tables in parallel
     results = {}
