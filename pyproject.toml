@@ -10,6 +10,10 @@ dependencies = [
     "pandas>=2.3.3",
     "psycopg2>=2.9.11",
     "pytest>=9.0.2",
+    "python-dotenv>=1.2.1",
     "ruff>=0.14.8",
     "sqlfluff>=3.5.0",
 ]
+
+[tool.setuptools]
+packages = ["pipeline"]
