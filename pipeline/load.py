@@ -14,7 +14,6 @@ See sql/OLAP schema.jpg for visual schema diagram.
 """
 
 import pandas as pd
-import psycopg2
 from dotenv import load_dotenv
 
 from pipeline.database import get_olap_connection_params
