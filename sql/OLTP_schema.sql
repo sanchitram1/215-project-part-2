@@ -2,30 +2,30 @@
 create table users (
     id uuid primary key default gen_random_uuid(),
     email varchar(255)
-        unique not null
-        check (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}$'),
+    unique not null
+    check (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}$'),
     display_name varchar(100),
     avatar_url text,
     found_us_source varchar(50)
-        not null
-        check (
-            found_us_source in (
-                'instagram',
-                'linkedin',
-                'threads',
-                'friends',
-                'web_summit',
-                'app_store',
-                'organic',
-                'other'
-            )
-        ),
+    not null
+    check (
+        found_us_source in (
+            'instagram',
+            'linkedin',
+            'threads',
+            'friends',
+            'web_summit',
+            'app_store',
+            'organic',
+            'other'
+        )
+    ),
     created_at timestamp default now(),
     updated_at timestamp default now()
 );
 
-create index idx_users_source on users(found_us_source);
-create index idx_users_created on users(created_at);
+create index idx_users_source on users (found_us_source);
+create index idx_users_created on users (created_at);
 
 -- 2. Places Table
 create table places (
@@ -49,17 +49,17 @@ create table places (
     updated_at timestamp default now()
 );
 
-create index idx_places_country on places(country_code);
-create index idx_places_locality on places(english_locality);
-create index idx_places_rating on places(rating);
-create index idx_places_coords on places(latitude, longitude);
+create index idx_places_country on places (country_code);
+create index idx_places_locality on places (english_locality);
+create index idx_places_rating on places (rating);
+create index idx_places_coords on places (latitude, longitude);
 
 -- 3. Contents Table
 create table contents (
     id uuid primary key default gen_random_uuid(),
     platform varchar(50)
-        not null
-        check (platform in ('instagram', 'tiktok', 'youtube')),
+    not null
+    check (platform in ('instagram', 'tiktok', 'youtube')),
     platform_id varchar(255) not null,
     url text not null,
     thumbnail_url text,
@@ -69,7 +69,7 @@ create table contents (
     unique (platform, platform_id)
 );
 
-create index idx_contents_platform on contents(platform);
+create index idx_contents_platform on contents (platform);
 
 -- 4. Tags Table
 create table tags (
@@ -82,7 +82,7 @@ create table tags (
     updated_at timestamp default now()
 );
 
-create index idx_tags_category on tags(category);
+create index idx_tags_category on tags (category);
 
 -- 5. Property_Mapping Table
 create table property_mapping (
@@ -91,70 +91,72 @@ create table property_mapping (
     zhtw_name varchar(100),
     emoji varchar(10) check (length(emoji) >= 1 and length(emoji) <= 8),
     category_type varchar(50)
-        check (category_type in ('label', 'ranking', 'award', 'campaign')),
+    check (category_type in ('label', 'ranking', 'award', 'campaign')),
     created_at timestamp default now(),
     updated_at timestamp default now()
 );
 
-create index idx_property_category on property_mapping(category_type);
+create index idx_property_category on property_mapping (category_type);
 
 -- 6. User_Places Junction Table
 create table user_places (
-    user_id uuid not null references users(id) on delete cascade,
-    place_id uuid not null references places(id) on delete cascade,
+    user_id uuid not null references users (id) on delete cascade,
+    place_id uuid not null references places (id) on delete cascade,
     is_deleted boolean default false,
     created_at timestamp default now(),
     updated_at timestamp default now(),
     primary key (user_id, place_id)
 );
 
-create index idx_user_places_user on user_places(user_id);
-create index idx_user_places_place on user_places(place_id);
-create index idx_user_places_created on user_places(created_at);
-create index idx_user_places_active on user_places(user_id)
+create index idx_user_places_user on user_places (user_id);
+create index idx_user_places_place on user_places (place_id);
+create index idx_user_places_created on user_places (created_at);
+create index idx_user_places_active on user_places (user_id)
 where is_deleted = false;
 
 -- 7. User_Contents Junction Table
 create table user_contents (
-    user_id uuid not null references users(id) on delete cascade,
-    content_id uuid not null references contents(id) on delete cascade,
+    user_id uuid not null references users (id) on delete cascade,
+    content_id uuid not null references contents (id) on delete cascade,
     is_deleted boolean default false,
     created_at timestamp default now(),
     updated_at timestamp default now(),
     primary key (user_id, content_id)
 );
 
-create index idx_user_contents_user on user_contents(user_id);
-create index idx_user_contents_content on user_contents(content_id);
+create index idx_user_contents_user on user_contents (user_id);
+create index idx_user_contents_content on user_contents (content_id);
 
 -- 8. Content_Places Junction Table
 create table content_places (
-    content_id uuid not null references contents(id) on delete cascade,
-    place_id uuid not null references places(id) on delete cascade,
+    content_id uuid not null references contents (id) on delete cascade,
+    place_id uuid not null references places (id) on delete cascade,
     created_at timestamp default now(),
     updated_at timestamp default now(),
     primary key (content_id, place_id)
 );
 
-create index idx_content_places_content on content_places(content_id);
-create index idx_content_places_place on content_places(place_id);
+create index idx_content_places_content on content_places (content_id);
+create index idx_content_places_place on content_places (place_id);
 
 -- 9. Place_Tags Junction Table
 create table place_tags (
-    place_id uuid not null references places(id) on delete cascade,
-    tag_id uuid not null references tags(id) on delete cascade,
+    place_id uuid not null references places (id) on delete cascade,
+    tag_id uuid not null references tags (id) on delete cascade,
     created_at timestamp default now(),
     updated_at timestamp default now(),
     primary key (place_id, tag_id)
 );
 
-create index idx_place_tags_place on place_tags(place_id);
-create index idx_place_tags_tag on place_tags(tag_id);
+create index idx_place_tags_place on place_tags (place_id);
+create index idx_place_tags_tag on place_tags (tag_id);
 
 -- 10. Place_Properties Junction Table
 create table place_properties (
-    place_id uuid not null references places(id) on delete cascade,
-    property_id uuid not null references property_mapping(id) on delete cascade,
+    place_id uuid not null references places (id) on delete cascade,
+    property_id uuid not null references property_mapping (
+        id
+    ) on delete cascade,
     rank integer check (rank > 0),
     start_at date,
     end_at date,
@@ -164,8 +166,8 @@ create table place_properties (
     check (end_at is null or start_at is null or end_at >= start_at)
 );
 
-create index idx_place_properties_place on place_properties(place_id);
-create index idx_place_properties_property on place_properties(property_id);
+create index idx_place_properties_place on place_properties (place_id);
+create index idx_place_properties_property on place_properties (property_id);
 
 -- 11. App_Version Table
 create table app_version (
