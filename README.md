@@ -220,3 +220,24 @@ Project for UC Berkeley IND ENG 215
 
 For questions about coding standards or development workflow, refer to
 `AGENTS.md`. For database schema details, see `sql/OLAP schema.jpg`.
+
+## Tasks
+
+### db-create
+
+```bash
+mkdir -p data/db_files
+initdb -D data/db_files
+```
+
+### db-start
+
+```bash
+pg_ctl -D data/db_files -l data/logfile start
+```
+
+### db-stop
+
+```bash
+pg_ctl -D data/db_files stop
+```
