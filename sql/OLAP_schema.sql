@@ -4,7 +4,7 @@
 -- 1. Users Dimension Table
 CREATE TABLE users (
     id INTEGER PRIMARY KEY,
-    source_user_id INTEGER UNIQUE NOT NULL,
+    source_user_id UUID UNIQUE NOT NULL,
     email TEXT,
     display_name TEXT,
     avatar_url TEXT,
@@ -19,7 +19,7 @@ CREATE INDEX idx_users_created ON users (created_at);
 -- 2. Places Dimension Table
 CREATE TABLE places (
     id INTEGER PRIMARY KEY,
-    source_place_id INTEGER UNIQUE NOT NULL,
+    source_place_id UUID UNIQUE NOT NULL,
     google_maps_id TEXT,
     english_display_name TEXT,
     zhtw_display_name TEXT,
@@ -47,7 +47,7 @@ CREATE INDEX idx_places_coords ON places (latitude, longitude);
 -- 3. Content Dimension Table
 CREATE TABLE content (
     id INTEGER PRIMARY KEY,
-    source_content_id INTEGER UNIQUE NOT NULL,
+    source_content_id UUID UNIQUE NOT NULL,
     platform TEXT,
     platform_id TEXT,
     url TEXT,
@@ -76,17 +76,13 @@ CREATE INDEX idx_property_category ON property (category_type);
 
 -- 5. interactions Fact Table
 CREATE TABLE interactions (
+    id INTEGER PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     content_id INTEGER NOT NULL REFERENCES content (id) ON DELETE CASCADE,
     place_id INTEGER NOT NULL REFERENCES places (id) ON DELETE CASCADE,
     property_id INTEGER REFERENCES property (id) ON DELETE SET NULL,
-    source_user_id INTEGER,
-    source_content_id INTEGER,
-    source_place_id INTEGER,
-    source_property_id INTEGER,
     created_at TIMESTAMP,
-    updated_at TIMESTAMP,
-    PRIMARY KEY (user_id, content_id, place_id, property_id)
+    updated_at TIMESTAMP
 );
 
 CREATE INDEX idx_interactions_user ON interactions (user_id);
