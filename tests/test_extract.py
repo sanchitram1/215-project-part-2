@@ -15,13 +15,10 @@ import pytest
 # Mock psycopg2 before importing extract module to avoid library dependency
 sys.modules["psycopg2"] = MagicMock()
 
+from pipeline.database import parse_database_url  # noqa:E402
+
 # Import the module under test after mocking psycopg2
-from pipeline.extract import (  # noqa: E402
-    TABLES_TO_EXTRACT,
-    _parse_database_url,
-    extract_all,
-    extract_table,
-)
+from pipeline.extract import TABLES_TO_EXTRACT, extract_all, extract_table  # noqa: E402
 
 
 # Create exception classes for mocking
@@ -73,7 +70,7 @@ def sample_dataframe():
 
 
 # ============================================================================
-# Tests for _parse_database_url
+# Tests for parse_database_url
 # ============================================================================
 
 
@@ -84,13 +81,13 @@ class TestParseDatabaseUrl:
         self, sample_database_url, sample_connection_params
     ):
         """Parse valid URL with all connection parameters."""
-        result = _parse_database_url(sample_database_url)
+        result = parse_database_url(sample_database_url)
         assert result == sample_connection_params
 
     def test_valid_url_default_port(self):
         """Parse URL without explicit port (should default to 5432)."""
         url = "postgresql://user:pass@host/mydb"
-        result = _parse_database_url(url)
+        result = parse_database_url(url)
         assert result["port"] == 5432
         assert result["host"] == "host"
         assert result["user"] == "user"
@@ -100,17 +97,17 @@ class TestParseDatabaseUrl:
     def test_invalid_url_format(self):
         """Invalid URL should raise ValueError."""
         with pytest.raises(ValueError, match="URL must have scheme, hostname"):
-            _parse_database_url("not-a-valid-url")
+            parse_database_url("not-a-valid-url")
 
     def test_empty_url(self):
         """Empty URL should raise ValueError."""
         with pytest.raises(ValueError, match="URL must have scheme, hostname"):
-            _parse_database_url("")
+            parse_database_url("")
 
     def test_url_without_password(self):
         """URL without password should still parse."""
         url = "postgresql://user@localhost/mydb"
-        result = _parse_database_url(url)
+        result = parse_database_url(url)
         assert result["user"] == "user"
         assert result["password"] is None
         assert result["host"] == "localhost"
@@ -157,8 +154,8 @@ class TestExtractTable:
         mock_read_sql.return_value = pd.DataFrame()  # Empty DataFrame
 
         # Execute and verify
-        with pytest.raises(ValueError, match="Table 'empty_table' returned no rows"):
-            extract_table("empty_table", sample_connection_params)
+        with pytest.raises(ValueError, match="Table 'users' returned no rows"):
+            extract_table("users", sample_connection_params)
 
     @patch("pipeline.extract.psycopg2.connect")
     def test_extraction_database_error(self, mock_connect, sample_connection_params):
@@ -175,18 +172,23 @@ class TestExtractTable:
     def test_extraction_query_format(
         self, mock_read_sql, mock_connect, sample_dataframe, sample_connection_params
     ):
-        """Verify correct SQL query is executed."""
+        """Verify correct SQL query is executed with configured columns."""
         # Setup mocks
         mock_conn = MagicMock()
         mock_connect.return_value.__enter__.return_value = mock_conn
         mock_read_sql.return_value = sample_dataframe
 
         # Execute
-        extract_table("content", sample_connection_params)
+        extract_table("contents", sample_connection_params)
 
-        # Verify the query includes table name
+        # Verify the query includes table name and only configured columns (not SELECT *)
         call_args = mock_read_sql.call_args
-        assert "SELECT * FROM content" in call_args[0][0]
+        query = call_args[0][0]
+        assert "SELECT" in query
+        assert "FROM contents" in query
+        # Verify it uses specific columns, not * (SELECT * would be generic)
+        assert "id" in query
+        assert "title" in query
 
 
 # ============================================================================
