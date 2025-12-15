@@ -208,10 +208,12 @@ class TestExtractAll:
         # Setup mocks
         mock_extract_table.side_effect = [
             ("users", pd.DataFrame({"id": [1, 2]})),
-            ("content", pd.DataFrame({"id": [1]})),
+            ("contents", pd.DataFrame({"id": [1]})),
             ("places", pd.DataFrame({"id": [1, 2, 3]})),
             ("property_mapping", pd.DataFrame({"id": [1]})),
-            ("user_content", pd.DataFrame({"id": [1, 2, 3, 4]})),
+            ("user_contents", pd.DataFrame({"id": [1, 2, 3, 4]})),
+            ("content_places", pd.DataFrame({"content_id": [1], "place_id": [1]})),
+            ("place_properties", pd.DataFrame({"place_id": [1], "property_id": [1]})),
         ]
 
         # Execute
@@ -221,7 +223,7 @@ class TestExtractAll:
         assert isinstance(result, dict)
         assert set(result.keys()) == set(TABLES_TO_EXTRACT)
         assert all(isinstance(df, pd.DataFrame) for df in result.values())
-        assert mock_extract_table.call_count == 5
+        assert mock_extract_table.call_count == 7
 
     @patch.dict(os.environ, {}, clear=True)
     def test_extract_all_missing_env_var(self):

@@ -31,6 +31,8 @@ TABLES_TO_EXTRACT = [
     "places",
     "property_mapping",
     "user_contents",
+    "content_places",
+    "place_properties",
 ]
 
 

@@ -138,6 +138,24 @@ def create_sample_user_contents(user_ids: list, content_ids: list) -> pd.DataFra
     return pd.DataFrame(data)
 
 
+def create_sample_content_places(content_ids: list, place_ids: list) -> pd.DataFrame:
+    """Create sample OLTP content_places junction table data."""
+    data = []
+    for i, content_id in enumerate(content_ids):
+        place_id = place_ids[i % len(place_ids)]
+        data.append({"content_id": content_id, "place_id": place_id})
+    return pd.DataFrame(data)
+
+
+def create_sample_place_properties(place_ids: list, property_ids: list) -> pd.DataFrame:
+    """Create sample OLTP place_properties junction table data."""
+    data = []
+    for i, place_id in enumerate(place_ids):
+        property_id = property_ids[i % len(property_ids)]
+        data.append({"place_id": place_id, "property_id": property_id})
+    return pd.DataFrame(data)
+
+
 # Test transform_users
 class TestTransformUsers:
     """Tests for transform_users function."""
@@ -369,16 +387,22 @@ class TestTransformFactTable:
         """Test basic fact table transformation."""
         user_ids = [f"user-{i}" for i in range(3)]
         content_ids = [f"content-{i}" for i in range(3)]
+        place_ids = [f"place-{i}" for i in range(3)]
+        property_ids = [f"property-{i}" for i in range(3)]
 
         raw_user_contents = create_sample_user_contents(user_ids, content_ids)
+        raw_content_places = create_sample_content_places(content_ids, place_ids)
+        raw_place_properties = create_sample_place_properties(place_ids, property_ids)
 
-        user_id_map = {uid: uid for uid in user_ids}
-        content_id_map = {cid: cid for cid in content_ids}
-        place_id_map = {}
-        property_id_map = {}
+        user_id_map = {uid: i + 1 for i, uid in enumerate(user_ids)}
+        content_id_map = {cid: i + 1 for i, cid in enumerate(content_ids)}
+        place_id_map = {pid: i + 1 for i, pid in enumerate(place_ids)}
+        property_id_map = {pid: i + 1 for i, pid in enumerate(property_ids)}
 
         result = transform_fact_table(
             raw_user_contents,
+            raw_content_places,
+            raw_place_properties,
             user_id_map=user_id_map,
             content_id_map=content_id_map,
             place_id_map=place_id_map,
@@ -395,35 +419,44 @@ class TestTransformFactTable:
         """Test that ID mapping is applied correctly."""
         user_ids = ["user-1", "user-2"]
         content_ids = ["content-1", "content-2"]
+        place_ids = ["place-1"]
+        property_ids = ["property-1"]
 
         raw_user_contents = create_sample_user_contents(user_ids, content_ids)
+        raw_content_places = create_sample_content_places(content_ids, place_ids)
+        raw_place_properties = create_sample_place_properties(place_ids, property_ids)
 
-        user_id_map = {"user-1": "mapped-user-1", "user-2": "mapped-user-2"}
-        content_id_map = {
-            "content-1": "mapped-content-1",
-            "content-2": "mapped-content-2",
-        }
+        user_id_map = {"user-1": 1, "user-2": 2}
+        content_id_map = {"content-1": 1, "content-2": 2}
+        place_id_map = {"place-1": 1}
+        property_id_map = {"property-1": 1}
 
         result = transform_fact_table(
             raw_user_contents,
+            raw_content_places,
+            raw_place_properties,
             user_id_map=user_id_map,
             content_id_map=content_id_map,
-            place_id_map={},
-            property_id_map={},
+            place_id_map=place_id_map,
+            property_id_map=property_id_map,
         )
 
         # Check that IDs are mapped
-        assert "mapped-user-1" in result["user_id"].values
-        assert "mapped-content-1" in result["content_id"].values
+        assert 1 in result["user_id"].values
+        assert 1 in result["content_id"].values
 
     def test_missing_columns_error(self):
         """Test error handling for missing columns."""
         raw_user_contents = create_sample_user_contents(["user-1"], ["content-1"])
         raw_user_contents = raw_user_contents.drop(columns=["user_id"])
+        raw_content_places = pd.DataFrame(columns=["content_id", "place_id"])
+        raw_place_properties = pd.DataFrame(columns=["place_id", "property_id"])
 
         with pytest.raises(ValueError, match="Missing required columns"):
             transform_fact_table(
                 raw_user_contents,
+                raw_content_places,
+                raw_place_properties,
                 user_id_map={},
                 content_id_map={},
                 place_id_map={},
@@ -437,14 +470,19 @@ class TestTransformOrchestrator:
 
     def test_complete_transformation(self):
         """Test complete transformation of all tables."""
+        user_ids = [f"user-{i}" for i in range(3)]
+        content_ids = [f"content-{i}" for i in range(3)]
+        place_ids = [f"place-{i}" for i in range(3)]
+        property_ids = [f"property-{i}" for i in range(3)]
+
         raw_data = {
             "users": create_sample_users(3),
             "contents": create_sample_content(3),
             "places": create_sample_places(3),
             "property_mapping": create_sample_property_mapping(3),
-            "user_contents": create_sample_user_contents(
-                [f"user-{i}" for i in range(3)], [f"content-{i}" for i in range(3)]
-            ),
+            "user_contents": create_sample_user_contents(user_ids, content_ids),
+            "content_places": create_sample_content_places(content_ids, place_ids),
+            "place_properties": create_sample_place_properties(place_ids, property_ids),
         }
 
         result = transform(raw_data)
@@ -472,7 +510,7 @@ class TestTransformOrchestrator:
         raw_data = {
             "users": create_sample_users(),
             "contents": create_sample_content(),
-            # Missing places, property_mapping, and user_contents
+            # Missing places, property_mapping, user_contents, content_places, place_properties
         }
 
         with pytest.raises(ValueError, match="Missing required tables"):
@@ -523,6 +561,8 @@ class TestTransformOrchestrator:
                     "updated_at",
                 ]
             ),
+            "content_places": pd.DataFrame(columns=["content_id", "place_id"]),
+            "place_properties": pd.DataFrame(columns=["place_id", "property_id"]),
         }
 
         result = transform(raw_data)

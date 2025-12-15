@@ -250,23 +250,27 @@ def transform_property(raw_property: pd.DataFrame) -> pd.DataFrame:
 
 def transform_fact_table(
     raw_user_content: pd.DataFrame,
+    raw_content_places: pd.DataFrame,
+    raw_place_properties: pd.DataFrame,
     user_id_map: dict,
     content_id_map: dict,
     place_id_map: dict,
     property_id_map: dict,
 ) -> pd.DataFrame:
     """
-    Transform user_content table to OLAP fact table.
+    Transform junction tables to OLAP fact table.
 
     The fact table is the central table linking all dimensions.
     It connects users to content to places to properties through a
     star schema with foreign key references.
 
-    Maps raw IDs to OLAP IDs using the provided maps and creates the
-    interaction records.
+    Joins user_contents → content_places → place_properties to build
+    the complete interaction chain, then maps raw IDs to OLAP surrogate IDs.
 
     Args:
         raw_user_content: DataFrame from OLTP user_contents table
+        raw_content_places: DataFrame from OLTP content_places table
+        raw_place_properties: DataFrame from OLTP place_properties table
         user_id_map: Dict mapping raw user IDs to OLAP user IDs
         content_id_map: Dict mapping raw content IDs to OLAP content IDs
         place_id_map: Dict mapping raw place IDs to OLAP place IDs
@@ -280,50 +284,55 @@ def transform_fact_table(
     """
     try:
         logger.info("Starting fact table transformation")
-        logger.debug(f"Raw user_content columns: {raw_user_content.columns.tolist()}")
         logger.debug(f"Raw user_content shape: {raw_user_content.shape}")
+        logger.debug(f"Raw content_places shape: {raw_content_places.shape}")
+        logger.debug(f"Raw place_properties shape: {raw_place_properties.shape}")
 
         # Validate required columns from OLTP
-        required_columns = {"user_id", "content_id"}
-        if not required_columns.issubset(raw_user_content.columns):
-            missing = required_columns - set(raw_user_content.columns)
-            raise ValueError(f"Missing required columns: {missing}")
+        if not {"user_id", "content_id"}.issubset(raw_user_content.columns):
+            missing = {"user_id", "content_id"} - set(raw_user_content.columns)
+            raise ValueError(f"Missing required columns in user_contents: {missing}")
+        if not {"content_id", "place_id"}.issubset(raw_content_places.columns):
+            missing = {"content_id", "place_id"} - set(raw_content_places.columns)
+            raise ValueError(f"Missing required columns in content_places: {missing}")
+        if not {"place_id", "property_id"}.issubset(raw_place_properties.columns):
+            missing = {"place_id", "property_id"} - set(raw_place_properties.columns)
+            raise ValueError(f"Missing required columns in place_properties: {missing}")
 
-        fact_table = raw_user_content.copy()
+        # Join user_contents with content_places on content_id
+        fact_table = raw_user_content[["user_id", "content_id", "created_at", "updated_at"]].merge(
+            raw_content_places[["content_id", "place_id"]],
+            on="content_id",
+            how="left",
+        )
 
-        # Store source IDs before mapping
-        fact_table["source_user_id"] = fact_table["user_id"]
-        fact_table["source_content_id"] = fact_table["content_id"]
+        # Join with place_properties on place_id
+        fact_table = fact_table.merge(
+            raw_place_properties[["place_id", "property_id"]],
+            on="place_id",
+            how="left",
+        )
 
-        # Map OLTP IDs to OLAP IDs (these are the FK values)
+        # Map OLTP IDs to OLAP surrogate IDs
         fact_table["user_id"] = fact_table["user_id"].map(user_id_map)
         fact_table["content_id"] = fact_table["content_id"].map(content_id_map)
+        fact_table["place_id"] = fact_table["place_id"].map(place_id_map)
+        fact_table["property_id"] = fact_table["property_id"].map(property_id_map)
 
-        # Note: place_id and property_id may need to be filled from junction tables
-        # For now, use the maps if provided, otherwise set to NULL
-        fact_table["source_place_id"] = None
-        fact_table["source_property_id"] = None
+        # Remove rows where user_id or content_id is NULL (failed mapping)
+        fact_table = fact_table.dropna(subset=["user_id", "content_id"])
 
-        if place_id_map:
-            fact_table["place_id"] = fact_table.get("place_id", pd.Series()).map(
-                place_id_map
-            )
-        else:
-            fact_table["place_id"] = None
+        # Convert FK columns to nullable int (Int64)
+        for col in ["user_id", "content_id", "place_id", "property_id"]:
+            fact_table[col] = fact_table[col].astype("Int64")
 
-        if property_id_map:
-            fact_table["property_id"] = fact_table.get("property_id", pd.Series()).map(
-                property_id_map
-            )
-        else:
-            fact_table["property_id"] = None
+        # Add auto-incrementing id column
+        fact_table.reset_index(drop=True, inplace=True)
+        fact_table["id"] = range(1, len(fact_table) + 1)
 
         # Select only OLAP fact table columns
         olap_columns = OLAP_COLUMNS["interactions"]
         fact_table = fact_table[olap_columns]
-
-        # Remove rows where user_id or content_id is NULL (failed mapping)
-        fact_table = fact_table.dropna(subset=["user_id", "content_id"])
 
         logger.info(f"Completed fact table transformation ({len(fact_table)} rows)")
         return fact_table
@@ -341,7 +350,8 @@ def transform(raw_data: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
 
     Args:
         raw_data: Dictionary from extract_all() with keys:
-                  {"users", "contents", "places", "property_mapping", "user_contents"}
+                  {"users", "contents", "places", "property_mapping",
+                   "user_contents", "content_places", "place_properties"}
 
     Returns:
         Dictionary of transformed tables with keys:
@@ -362,6 +372,8 @@ def transform(raw_data: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
             "places",
             "property_mapping",
             "user_contents",
+            "content_places",
+            "place_properties",
         }
         if not required_tables.issubset(raw_data.keys()):
             missing = required_tables - raw_data.keys()
@@ -385,9 +397,11 @@ def transform(raw_data: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
 
         logger.info("ID maps created for referential integrity")
 
-        # Transform fact table
+        # Transform fact table using junction tables
         fact_table_df = transform_fact_table(
             raw_data["user_contents"],
+            raw_data["content_places"],
+            raw_data["place_properties"],
             user_id_map=user_id_map,
             content_id_map=content_id_map,
             place_id_map=place_id_map,

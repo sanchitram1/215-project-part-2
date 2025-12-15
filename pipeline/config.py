@@ -82,6 +82,14 @@ OLTP_COLUMNS = {
         "created_at",
         "updated_at",
     ],
+    "content_places": [
+        "content_id",
+        "place_id",
+    ],
+    "place_properties": [
+        "place_id",
+        "property_id",
+    ],
 }
 
 # OLAP Target Columns (from OLAP_schema.sql)

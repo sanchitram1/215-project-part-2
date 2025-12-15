@@ -199,17 +199,33 @@ class TestFactTableIDMapping:
                 "updated_at": ["2024-01-01", "2024-01-02", "2024-01-03"],
             }
         )
+        raw_content_places = pd.DataFrame(
+            {
+                "content_id": [201, 202, 203],
+                "place_id": [301, 302, 303],
+            }
+        )
+        raw_place_properties = pd.DataFrame(
+            {
+                "place_id": [301, 302, 303],
+                "property_id": [401, 402, 403],
+            }
+        )
 
         # Create ID maps (simulating what transform orchestrator would create)
         user_id_map = {101: 1, 102: 2, 103: 3}  # OLTP ID -> OLAP ID
         content_id_map = {201: 1, 202: 2, 203: 3}
+        place_id_map = {301: 1, 302: 2, 303: 3}
+        property_id_map = {401: 1, 402: 2, 403: 3}
 
         result = transform_fact_table(
             raw_fact,
+            raw_content_places,
+            raw_place_properties,
             user_id_map=user_id_map,
             content_id_map=content_id_map,
-            place_id_map={},
-            property_id_map={},
+            place_id_map=place_id_map,
+            property_id_map=property_id_map,
         )
 
         # Verify IDs are mapped correctly
@@ -229,16 +245,32 @@ class TestFactTableIDMapping:
                 "updated_at": ["2024-01-01", "2024-01-02", "2024-01-03"],
             }
         )
+        raw_content_places = pd.DataFrame(
+            {
+                "content_id": [201, 202, 203],
+                "place_id": [301, 302, 303],
+            }
+        )
+        raw_place_properties = pd.DataFrame(
+            {
+                "place_id": [301, 302, 303],
+                "property_id": [401, 402, 403],
+            }
+        )
 
         user_id_map = {101: 1, 102: 2}  # 999 not mapped
         content_id_map = {201: 1, 202: 2, 203: 3}
+        place_id_map = {301: 1, 302: 2, 303: 3}
+        property_id_map = {401: 1, 402: 2, 403: 3}
 
         result = transform_fact_table(
             raw_fact,
+            raw_content_places,
+            raw_place_properties,
             user_id_map=user_id_map,
             content_id_map=content_id_map,
-            place_id_map={},
-            property_id_map={},
+            place_id_map=place_id_map,
+            property_id_map=property_id_map,
         )
 
         # Should only have 2 rows (third row with unmapped ID dropped)
