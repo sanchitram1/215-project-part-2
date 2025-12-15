@@ -16,6 +16,9 @@ dependencies = [
     "sqlfluff>=3.5.0",
 ]
 
+[tool.ruff]
+line-length = 88
+
 [tool.setuptools]
 packages = ["pipeline"]
 

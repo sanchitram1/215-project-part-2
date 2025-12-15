@@ -105,7 +105,9 @@ def transform_content(raw_content: pd.DataFrame) -> pd.DataFrame:
 
         # Rename 'id' to 'source_content_id' to match OLAP schema
         transformed_content = raw_content.copy()
-        transformed_content = transformed_content.rename(columns={"id": "source_content_id"})
+        transformed_content = transformed_content.rename(
+            columns={"id": "source_content_id"}
+        )
 
         # Map OLTP preview_image_url to OLAP thumbnail_url
         if "preview_image_url" in transformed_content.columns:
@@ -169,7 +171,9 @@ def transform_places(raw_places: pd.DataFrame) -> pd.DataFrame:
 
         # Rename 'id' to 'source_place_id' to match OLAP schema
         transformed_places = raw_places.copy()
-        transformed_places = transformed_places.rename(columns={"id": "source_place_id"})
+        transformed_places = transformed_places.rename(
+            columns={"id": "source_place_id"}
+        )
 
         # Select only OLAP schema columns (excluding 'id' which we'll add)
         olap_columns = [col for col in OLAP_COLUMNS["places"] if col != "id"]
@@ -300,7 +304,9 @@ def transform_fact_table(
             raise ValueError(f"Missing required columns in place_properties: {missing}")
 
         # Join user_contents with content_places on content_id
-        fact_table = raw_user_content[["user_id", "content_id", "created_at", "updated_at"]].merge(
+        fact_table = raw_user_content[
+            ["user_id", "content_id", "created_at", "updated_at"]
+        ].merge(
             raw_content_places[["content_id", "place_id"]],
             on="content_id",
             how="left",
