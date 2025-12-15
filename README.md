@@ -1,5 +1,8 @@
 # Voyla OLAP Database Project
 
+[![Tests Passing](https://img.shields.io/badge/tests-54%20passing-green)](https://github.com/sanchitram1/215-project-part-2/actions)
+[![Coverage](https://img.shields.io/badge/coverage-81%25-brightgreen)](https://github.com/sanchitram1/215-project-part-2)
+
 An OLAP (Online Analytical Processing) database implementation for voyla.world
 that enables analytical queries across user behavior, content, places, and
 properties.
