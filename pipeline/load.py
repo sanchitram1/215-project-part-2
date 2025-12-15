@@ -14,6 +14,9 @@ See sql/OLAP schema.jpg for visual schema diagram.
 """
 
 import pandas as pd
+import psycopg2
+from psycopg2 import sql
+from psycopg2.extras import execute_values
 from dotenv import load_dotenv
 
 from pipeline.database import get_olap_connection_params
@@ -29,13 +32,6 @@ def load_table(table_name: str, df: pd.DataFrame, connection_params: dict) -> No
     """
     Load a single dimension/fact table into OLAP database.
 
-    TODO:
-    1. Establish connection to OLAP database using connection_params
-    2. Clear existing data from table (truncate) or check for duplicates
-    3. Insert DataFrame rows into the table
-    4. Verify row count matches expected
-    5. Log success with row count
-
     Args:
         table_name: Name of OLAP table to load (e.g., "users", "content", "fact_table")
         df: Transformed DataFrame ready to load
@@ -45,12 +41,41 @@ def load_table(table_name: str, df: pd.DataFrame, connection_params: dict) -> No
         ValueError: If table doesn't exist or load fails
         psycopg2.Error: If database operation fails
     """
+    if df.empty:
+        logger.warning(f"DataFrame for '{table_name}' is empty, skipping load")
+        return
+
     try:
         logger.info(f"Starting load for table '{table_name}'")
 
-        # TODO: Implement loading logic here
-        # Hint: Use df.to_sql() or iterate rows with psycopg2
-        # Be sure to handle data type conversions (e.g., datetime, UUID)
+        with psycopg2.connect(**connection_params) as conn:
+            with conn.cursor() as cur:
+                # Clear existing data (CASCADE handles FK constraints)
+                cur.execute(
+                    sql.SQL("TRUNCATE TABLE {} CASCADE").format(
+                        sql.Identifier(table_name)
+                    )
+                )
+                logger.debug(f"Truncated table '{table_name}'")
+
+                # Prepare column names
+                columns = df.columns.tolist()
+                col_names = sql.SQL(", ").join([sql.Identifier(c) for c in columns])
+
+                # Convert DataFrame to list of tuples, handling NaN -> None
+                data = [
+                    tuple(None if pd.isna(v) else v for v in row)
+                    for row in df.itertuples(index=False, name=None)
+                ]
+
+                # Bulk insert using execute_values for performance
+                query = sql.SQL("INSERT INTO {} ({}) VALUES %s").format(
+                    sql.Identifier(table_name),
+                    col_names
+                )
+                execute_values(cur, query, data, page_size=1000)
+
+            conn.commit()
 
         logger.info(f"Successfully loaded table '{table_name}' ({len(df)} rows)")
 
@@ -62,10 +87,6 @@ def load_users(df: pd.DataFrame, connection_params: dict) -> None:
     """
     Load users dimension table.
 
-    TODO:
-    1. Call load_table() with table_name="users"
-    2. Or implement custom logic if needed (e.g., upsert instead of truncate/insert)
-
     Args:
         df: Transformed users DataFrame
         connection_params: OLAP database connection parameters
@@ -75,7 +96,6 @@ def load_users(df: pd.DataFrame, connection_params: dict) -> None:
     """
     try:
         logger.info("Loading users dimension table")
-        # TODO: Implement users-specific loading logic
         load_table("users", df, connection_params)
     except Exception as e:
         raise ValueError(f"Failed to load users: {e}") from e
@@ -84,10 +104,6 @@ def load_users(df: pd.DataFrame, connection_params: dict) -> None:
 def load_content(df: pd.DataFrame, connection_params: dict) -> None:
     """
     Load content dimension table.
-
-    TODO:
-    1. Call load_table() with table_name="content"
-    2. Handle large description field appropriately
 
     Args:
         df: Transformed content DataFrame
@@ -98,7 +114,6 @@ def load_content(df: pd.DataFrame, connection_params: dict) -> None:
     """
     try:
         logger.info("Loading content dimension table")
-        # TODO: Implement content-specific loading logic
         load_table("content", df, connection_params)
     except Exception as e:
         raise ValueError(f"Failed to load content: {e}") from e
@@ -107,9 +122,6 @@ def load_content(df: pd.DataFrame, connection_params: dict) -> None:
 def load_places(df: pd.DataFrame, connection_params: dict) -> None:
     """
     Load places dimension table.
-
-    TODO:
-    1. Call load_table() with table_name="places"
 
     Args:
         df: Transformed places DataFrame
@@ -120,7 +132,6 @@ def load_places(df: pd.DataFrame, connection_params: dict) -> None:
     """
     try:
         logger.info("Loading places dimension table")
-        # TODO: Implement places-specific loading logic
         load_table("places", df, connection_params)
     except Exception as e:
         raise ValueError(f"Failed to load places: {e}") from e
@@ -129,9 +140,6 @@ def load_places(df: pd.DataFrame, connection_params: dict) -> None:
 def load_property(df: pd.DataFrame, connection_params: dict) -> None:
     """
     Load property dimension table.
-
-    TODO:
-    1. Call load_table() with table_name="property"
 
     Args:
         df: Transformed property DataFrame
@@ -142,7 +150,6 @@ def load_property(df: pd.DataFrame, connection_params: dict) -> None:
     """
     try:
         logger.info("Loading property dimension table")
-        # TODO: Implement property-specific loading logic
         load_table("property", df, connection_params)
     except Exception as e:
         raise ValueError(f"Failed to load property: {e}") from e
@@ -151,10 +158,6 @@ def load_property(df: pd.DataFrame, connection_params: dict) -> None:
 def load_fact_table(df: pd.DataFrame, connection_params: dict) -> None:
     """
     Load central fact table.
-
-    TODO:
-    1. Call load_table() with table_name="fact_table" (or whatever your fact table is named)
-    2. Validate foreign key constraints (all user_id, content_id, etc. exist in dimensions)
 
     Args:
         df: Transformed fact table DataFrame
@@ -165,7 +168,6 @@ def load_fact_table(df: pd.DataFrame, connection_params: dict) -> None:
     """
     try:
         logger.info("Loading fact table")
-        # TODO: Implement fact table-specific loading logic
         load_table("fact_table", df, connection_params)
     except Exception as e:
         raise ValueError(f"Failed to load fact table: {e}") from e
@@ -177,13 +179,6 @@ def load_olap(transformed_data: dict[str, pd.DataFrame]) -> None:
 
     Takes transformed DataFrames from transform.py and loads them
     into the OLAP database star schema.
-
-    TODO:
-    1. Get OLAP connection parameters via _get_olap_connection_params()
-    2. Validate that all expected tables are in transformed_data
-    3. Call individual load_* functions for each dimension table
-    4. Call load_fact_table() last (after all dimensions are loaded)
-    5. Log overall completion
 
     Args:
         transformed_data: Dictionary from transform() with keys:
@@ -206,15 +201,14 @@ def load_olap(transformed_data: dict[str, pd.DataFrame]) -> None:
         # Get connection parameters
         conn_params = get_olap_connection_params()
 
-        # TODO: Implement loading orchestration
-        # 1. Load dimension tables first (order may matter for constraints)
-        # 2. Load fact table last
-        # Example:
-        # load_users(transformed_data["users"], conn_params)
-        # load_content(transformed_data["content"], conn_params)
-        # load_places(transformed_data["places"], conn_params)
-        # load_property(transformed_data["property"], conn_params)
-        # load_fact_table(transformed_data["fact_table"], conn_params)
+        # Load dimension tables first (order doesn't matter among dimensions)
+        load_users(transformed_data["users"], conn_params)
+        load_content(transformed_data["content"], conn_params)
+        load_places(transformed_data["places"], conn_params)
+        load_property(transformed_data["property"], conn_params)
+
+        # Load fact table last (has FK references to all dimensions)
+        load_fact_table(transformed_data["fact_table"], conn_params)
 
         logger.info("Completed OLAP load phase")
 
