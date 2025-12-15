@@ -241,3 +241,21 @@ pg_ctl -D data/db_files -l data/logfile start
 ```bash
 pg_ctl -D data/db_files stop
 ```
+
+### db-kill
+
+Requires: db-stop
+
+```bash
+rm -rf data/db_files
+```
+
+### db-reset
+
+Requires: db-kill, db-create, db-start
+
+### migrate
+
+```bash
+psql $OLAP_DATABASE_URL -f sql/OLAP_schema.sql
+```
