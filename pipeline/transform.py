@@ -19,6 +19,7 @@ See sql/OLAP_schema.jpg for visual schema diagram.
 
 import pandas as pd
 
+from pipeline.config import OLAP_COLUMNS, OLTP_COLUMNS
 from pipeline.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -32,7 +33,7 @@ def transform_users(raw_users: pd.DataFrame) -> pd.DataFrame:
     matching the OLAP schema. Removes duplicates if necessary.
 
     Args:
-        raw_users: DataFrame from OLTP users table (SELECT * result)
+        raw_users: DataFrame from OLTP users table
 
     Returns:
         Transformed users dimension DataFrame ready for loading
@@ -46,15 +47,7 @@ def transform_users(raw_users: pd.DataFrame) -> pd.DataFrame:
         logger.debug(f"Raw users shape: {raw_users.shape}")
 
         # Validate required columns
-        required_columns = {
-            "id",
-            "email",
-            "display_name",
-            "avatar_url",
-            "found_us_source",
-            "created_at",
-            "updated_at",
-        }
+        required_columns = set(OLTP_COLUMNS["users"])
         if not required_columns.issubset(raw_users.columns):
             missing = required_columns - set(raw_users.columns)
             raise ValueError(f"Missing required columns: {missing}")
@@ -64,15 +57,7 @@ def transform_users(raw_users: pd.DataFrame) -> pd.DataFrame:
         transformed_users = transformed_users.rename(columns={"id": "user_id"})
 
         # Select only OLAP schema columns
-        olap_columns = [
-            "user_id",
-            "email",
-            "display_name",
-            "avatar_url",
-            "found_us_source",
-            "created_at",
-            "updated_at",
-        ]
+        olap_columns = OLAP_COLUMNS["users"]
         transformed_users = transformed_users[olap_columns]
 
         # Remove duplicates if any (keep first occurrence)
@@ -92,10 +77,11 @@ def transform_content(raw_content: pd.DataFrame) -> pd.DataFrame:
     Transform content table to OLAP dimension table.
 
     Renames OLTP 'id' column to 'content_id' and selects required columns
-    matching the OLAP schema.
+    matching the OLAP schema. Maps OLTP columns to OLAP columns where names differ.
+    Note: OLTP schema doesn't include 'platform' or 'platform_id' fields.
 
     Args:
-        raw_content: DataFrame from OLTP content table (SELECT * result)
+        raw_content: DataFrame from OLTP contents table
 
     Returns:
         Transformed content dimension DataFrame ready for loading
@@ -108,17 +94,8 @@ def transform_content(raw_content: pd.DataFrame) -> pd.DataFrame:
         logger.debug(f"Raw content columns: {raw_content.columns.tolist()}")
         logger.debug(f"Raw content shape: {raw_content.shape}")
 
-        # Validate required columns
-        required_columns = {
-            "id",
-            "platform",
-            "platform_id",
-            "url",
-            "thumbnail_url",
-            "description",
-            "created_at",
-            "updated_at",
-        }
+        # Validate required OLTP columns
+        required_columns = set(OLTP_COLUMNS["contents"])
         if not required_columns.issubset(raw_content.columns):
             missing = required_columns - set(raw_content.columns)
             raise ValueError(f"Missing required columns: {missing}")
@@ -127,17 +104,20 @@ def transform_content(raw_content: pd.DataFrame) -> pd.DataFrame:
         transformed_content = raw_content.copy()
         transformed_content = transformed_content.rename(columns={"id": "content_id"})
 
+        # Map OLTP preview_image_url to OLAP thumbnail_url
+        if "preview_image_url" in transformed_content.columns:
+            transformed_content["thumbnail_url"] = transformed_content.get(
+                "preview_image_url"
+            )
+
+        # Add placeholder columns for platform and platform_id (not in OLTP)
+        if "platform" not in transformed_content.columns:
+            transformed_content["platform"] = None
+        if "platform_id" not in transformed_content.columns:
+            transformed_content["platform_id"] = None
+
         # Select only OLAP schema columns
-        olap_columns = [
-            "content_id",
-            "platform",
-            "platform_id",
-            "url",
-            "thumbnail_url",
-            "description",
-            "created_at",
-            "updated_at",
-        ]
+        olap_columns = OLAP_COLUMNS["content"]
         transformed_content = transformed_content[olap_columns]
 
         # Remove duplicates if any (keep first occurrence)
@@ -162,7 +142,7 @@ def transform_places(raw_places: pd.DataFrame) -> pd.DataFrame:
     matching the OLAP schema.
 
     Args:
-        raw_places: DataFrame from OLTP places table (SELECT * result)
+        raw_places: DataFrame from OLTP places table
 
     Returns:
         Transformed places dimension DataFrame ready for loading
@@ -175,27 +155,8 @@ def transform_places(raw_places: pd.DataFrame) -> pd.DataFrame:
         logger.debug(f"Raw places columns: {raw_places.columns.tolist()}")
         logger.debug(f"Raw places shape: {raw_places.shape}")
 
-        # Validate required columns
-        required_columns = {
-            "id",
-            "google_maps_id",
-            "english_display_name",
-            "zhtw_display_name",
-            "english_address",
-            "zhtw_address",
-            "phone_number",
-            "rating",
-            "latitude",
-            "longitude",
-            "country_code",
-            "english_administrative_area",
-            "zhtw_administrative_area",
-            "english_locality",
-            "zhtw_locality",
-            "primary_type",
-            "created_at",
-            "updated_at",
-        }
+        # Validate required OLTP columns
+        required_columns = set(OLTP_COLUMNS["places"])
         if not required_columns.issubset(raw_places.columns):
             missing = required_columns - set(raw_places.columns)
             raise ValueError(f"Missing required columns: {missing}")
@@ -205,26 +166,7 @@ def transform_places(raw_places: pd.DataFrame) -> pd.DataFrame:
         transformed_places = transformed_places.rename(columns={"id": "place_id"})
 
         # Select only OLAP schema columns
-        olap_columns = [
-            "place_id",
-            "google_maps_id",
-            "english_display_name",
-            "zhtw_display_name",
-            "english_address",
-            "zhtw_address",
-            "phone_number",
-            "rating",
-            "latitude",
-            "longitude",
-            "country_code",
-            "english_administrative_area",
-            "zhtw_administrative_area",
-            "english_locality",
-            "zhtw_locality",
-            "primary_type",
-            "created_at",
-            "updated_at",
-        ]
+        olap_columns = OLAP_COLUMNS["places"]
         transformed_places = transformed_places[olap_columns]
 
         # Remove duplicates if any (keep first occurrence)
@@ -243,11 +185,11 @@ def transform_property(raw_property: pd.DataFrame) -> pd.DataFrame:
     """
     Transform property table to OLAP dimension table.
 
-    Renames OLTP 'id' column to 'property_id' and 'category' to 'category_type'
-    to match OLAP schema.
+    Renames OLTP 'id' column to 'property_id' and maps column names to match OLAP schema
+    (e.g., english_display_name -> english_name, zhtw_display_name -> zhtw_name).
 
     Args:
-        raw_property: DataFrame from OLTP property_mapping table (SELECT * result)
+        raw_property: DataFrame from OLTP property_mapping table
 
     Returns:
         Transformed property dimension DataFrame ready for loading
@@ -260,16 +202,8 @@ def transform_property(raw_property: pd.DataFrame) -> pd.DataFrame:
         logger.debug(f"Raw property columns: {raw_property.columns.tolist()}")
         logger.debug(f"Raw property shape: {raw_property.shape}")
 
-        # Validate required columns
-        required_columns = {
-            "id",
-            "english_name",
-            "zhtw_name",
-            "emoji",
-            "category_type",
-            "created_at",
-            "updated_at",
-        }
+        # Validate required OLTP columns
+        required_columns = set(OLTP_COLUMNS["property_mapping"])
         if not required_columns.issubset(raw_property.columns):
             missing = required_columns - set(raw_property.columns)
             raise ValueError(f"Missing required columns: {missing}")
@@ -277,19 +211,15 @@ def transform_property(raw_property: pd.DataFrame) -> pd.DataFrame:
         # Rename 'id' to 'property_id' to match OLAP schema
         transformed_property = raw_property.copy()
         transformed_property = transformed_property.rename(
-            columns={"id": "property_id"}
+            columns={
+                "id": "property_id",
+                "english_display_name": "english_name",
+                "zhtw_display_name": "zhtw_name",
+            }
         )
 
         # Select only OLAP schema columns
-        olap_columns = [
-            "property_id",
-            "english_name",
-            "zhtw_name",
-            "emoji",
-            "category_type",
-            "created_at",
-            "updated_at",
-        ]
+        olap_columns = OLAP_COLUMNS["property"]
         transformed_property = transformed_property[olap_columns]
 
         # Remove duplicates if any (keep first occurrence)
@@ -324,7 +254,7 @@ def transform_fact_table(
     interaction records.
 
     Args:
-        raw_user_content: DataFrame from OLTP user_contents table (SELECT * result)
+        raw_user_content: DataFrame from OLTP user_contents table
         user_id_map: Dict mapping raw user IDs to OLAP user IDs
         content_id_map: Dict mapping raw content IDs to OLAP content IDs
         place_id_map: Dict mapping raw place IDs to OLAP place IDs
@@ -341,7 +271,7 @@ def transform_fact_table(
         logger.debug(f"Raw user_content columns: {raw_user_content.columns.tolist()}")
         logger.debug(f"Raw user_content shape: {raw_user_content.shape}")
 
-        # Validate required columns
+        # Validate required columns from OLTP
         required_columns = {"user_id", "content_id"}
         if not required_columns.issubset(raw_user_content.columns):
             missing = required_columns - set(raw_user_content.columns)
@@ -369,15 +299,9 @@ def transform_fact_table(
         else:
             fact_table["property_id"] = None
 
-        # Select only fact table columns
-        # Keep created_at and updated_at if they exist
-        fact_columns = ["user_id", "content_id", "place_id", "property_id"]
-        if "created_at" in fact_table.columns:
-            fact_columns.append("created_at")
-        if "updated_at" in fact_table.columns:
-            fact_columns.append("updated_at")
-
-        fact_table = fact_table[fact_columns]
+        # Select only OLAP fact table columns
+        olap_columns = OLAP_COLUMNS["interactions"]
+        fact_table = fact_table[olap_columns]
 
         # Remove rows where user_id or content_id is NULL (failed mapping)
         fact_table = fact_table.dropna(subset=["user_id", "content_id"])

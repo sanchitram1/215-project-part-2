@@ -19,6 +19,7 @@ from psycopg2 import sql
 from psycopg2.extras import execute_values
 from dotenv import load_dotenv
 
+from pipeline.config import OLAP_COLUMNS
 from pipeline.database import get_olap_connection_params
 from pipeline.logging_config import get_logger
 
@@ -70,8 +71,7 @@ def load_table(table_name: str, df: pd.DataFrame, connection_params: dict) -> No
 
                 # Bulk insert using execute_values for performance
                 query = sql.SQL("INSERT INTO {} ({}) VALUES %s").format(
-                    sql.Identifier(table_name),
-                    col_names
+                    sql.Identifier(table_name), col_names
                 )
                 execute_values(cur, query, data, page_size=1000)
 
@@ -157,20 +157,20 @@ def load_property(df: pd.DataFrame, connection_params: dict) -> None:
 
 def load_fact_table(df: pd.DataFrame, connection_params: dict) -> None:
     """
-    Load central fact table.
+    Load interactions fact table.
 
     Args:
-        df: Transformed fact table DataFrame
+        df: Transformed interactions fact table DataFrame
         connection_params: OLAP database connection parameters
 
     Raises:
         ValueError: If load fails or foreign key constraints violated
     """
     try:
-        logger.info("Loading fact table")
-        load_table("fact_table", df, connection_params)
+        logger.info("Loading interactions fact table")
+        load_table("interactions", df, connection_params)
     except Exception as e:
-        raise ValueError(f"Failed to load fact table: {e}") from e
+        raise ValueError(f"Failed to load interactions fact table: {e}") from e
 
 
 def load_olap(transformed_data: dict[str, pd.DataFrame]) -> None:
@@ -192,10 +192,15 @@ def load_olap(transformed_data: dict[str, pd.DataFrame]) -> None:
     try:
         logger.info("Starting OLAP load phase")
 
-        # Validate input
-        required_tables = {"users", "content", "places", "property", "fact_table"}
-        if not required_tables.issubset(transformed_data.keys()):
-            missing = required_tables - transformed_data.keys()
+        # Validate input - required tables must match OLAP schema
+        required_tables = set(OLAP_COLUMNS.keys())
+        # Transform output uses "fact_table" key, but OLAP uses "interactions" table name
+        required_transform_keys = required_tables.copy()
+        required_transform_keys.discard("interactions")
+        required_transform_keys.add("fact_table")
+        
+        if not required_transform_keys.issubset(transformed_data.keys()):
+            missing = required_transform_keys - transformed_data.keys()
             raise KeyError(f"Missing required tables for loading: {missing}")
 
         # Get connection parameters
