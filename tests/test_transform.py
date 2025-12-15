@@ -27,7 +27,11 @@ def create_sample_users(n: int = 5) -> pd.DataFrame:
             "id": [f"user-{i}" for i in range(n)],
             "email": [f"user{i}@example.com" for i in range(n)],
             "display_name": [f"User {i}" for i in range(n)],
+            "first_name": [f"First{i}" for i in range(n)],
+            "last_name": [f"Last{i}" for i in range(n)],
             "avatar_url": [f"https://example.com/avatar{i}.png" for i in range(n)],
+            "gender": ["male", "female", "other", "male", "female"][:n],
+            "provider": ["google", "github", "email", "google", "github"][:n],
             "found_us_source": [
                 "instagram",
                 "linkedin",
@@ -46,11 +50,16 @@ def create_sample_content(n: int = 5) -> pd.DataFrame:
     return pd.DataFrame(
         {
             "id": [f"content-{i}" for i in range(n)],
-            "platform": ["instagram", "tiktok", "youtube", "instagram", "tiktok"][:n],
-            "platform_id": [f"platform-id-{i}" for i in range(n)],
             "url": [f"https://example.com/content{i}" for i in range(n)],
-            "thumbnail_url": [f"https://example.com/thumb{i}.jpg" for i in range(n)],
+            "html": [f"<html>Content {i}</html>" for i in range(n)],
+            "title": [f"Content {i}" for i in range(n)],
             "description": [f"Content {i} description" for i in range(n)],
+            "site_name": ["Example Site" for _ in range(n)],
+            "icon_url": [f"https://example.com/icon{i}.png" for i in range(n)],
+            "preview_image_url": [
+                f"https://example.com/preview{i}.jpg" for i in range(n)
+            ],
+            "status": ["published", "draft", "published", "draft", "published"][:n],
             "created_at": [datetime(2024, 1, 1) for _ in range(n)],
             "updated_at": [datetime(2024, 1, 2) for _ in range(n)],
         }
@@ -71,6 +80,11 @@ def create_sample_places(n: int = 5) -> pd.DataFrame:
             "rating": [4.0 + i * 0.2 for i in range(n)],
             "latitude": [40.0 + i * 0.1 for i in range(n)],
             "longitude": [-74.0 + i * 0.1 for i in range(n)],
+            "photo_urls": [[f"https://example.com/photo{i}.jpg"] for i in range(n)],
+            "google_map_url": [f"https://maps.google.com/place{i}" for i in range(n)],
+            "website_url": [f"https://example.com/place{i}" for i in range(n)],
+            "primary_type": ["restaurant", "cafe", "bar", "restaurant", "cafe"][:n],
+            "opening_hours": ["9AM-5PM" for _ in range(n)],
             "country_code": ["US", "US", "TW", "TW", "JP"][:n],
             "english_administrative_area": ["NY", "NY", "Taipei", "Taipei", "Tokyo"][
                 :n
@@ -78,7 +92,7 @@ def create_sample_places(n: int = 5) -> pd.DataFrame:
             "zhtw_administrative_area": ["紐約", "紐約", "台北", "台北", "東京"][:n],
             "english_locality": ["NYC", "NYC", "Taipei", "Taipei", "Tokyo"][:n],
             "zhtw_locality": ["紐約市", "紐約市", "台北市", "台北市", "東京都"][:n],
-            "primary_type": ["restaurant", "cafe", "bar", "restaurant", "cafe"][:n],
+            "report": [None for _ in range(n)],
             "created_at": [datetime(2024, 1, 1) for _ in range(n)],
             "updated_at": [datetime(2024, 1, 2) for _ in range(n)],
         }
@@ -90,10 +104,17 @@ def create_sample_property_mapping(n: int = 5) -> pd.DataFrame:
     return pd.DataFrame(
         {
             "id": [f"property-{i}" for i in range(n)],
-            "english_name": [f"Property {i}" for i in range(n)],
-            "zhtw_name": [f"屬性 {i}" for i in range(n)],
-            "emoji": ["🏆", "⭐", "🎖️", "🔥", "✨"][:n],
+            "slug": [f"property-{i}" for i in range(n)],
+            "english_display_name": [f"Property {i}" for i in range(n)],
+            "zhtw_display_name": [f"屬性 {i}" for i in range(n)],
+            "english_description": [f"Property {i} description" for i in range(n)],
+            "zhtw_description": [f"屬性 {i} 描述" for i in range(n)],
             "category_type": ["label", "ranking", "award", "campaign", "label"][:n],
+            "source": ["internal", "external", "internal", "external", "internal"][:n],
+            "source_url": [f"https://example.com/prop{i}" for i in range(n)],
+            "is_active": [True, True, False, True, True][:n],
+            "emoji": ["🏆", "⭐", "🎖️", "🔥", "✨"][:n],
+            "cover_img_url": [f"https://example.com/cover{i}.jpg" for i in range(n)],
             "created_at": [datetime(2024, 1, 1) for _ in range(n)],
             "updated_at": [datetime(2024, 1, 2) for _ in range(n)],
         }
@@ -117,6 +138,24 @@ def create_sample_user_contents(user_ids: list, content_ids: list) -> pd.DataFra
     return pd.DataFrame(data)
 
 
+def create_sample_content_places(content_ids: list, place_ids: list) -> pd.DataFrame:
+    """Create sample OLTP content_places junction table data."""
+    data = []
+    for i, content_id in enumerate(content_ids):
+        place_id = place_ids[i % len(place_ids)]
+        data.append({"content_id": content_id, "place_id": place_id})
+    return pd.DataFrame(data)
+
+
+def create_sample_place_properties(place_ids: list, property_ids: list) -> pd.DataFrame:
+    """Create sample OLTP place_properties junction table data."""
+    data = []
+    for i, place_id in enumerate(place_ids):
+        property_id = property_ids[i % len(property_ids)]
+        data.append({"place_id": place_id, "property_id": property_id})
+    return pd.DataFrame(data)
+
+
 # Test transform_users
 class TestTransformUsers:
     """Tests for transform_users function."""
@@ -126,10 +165,11 @@ class TestTransformUsers:
         raw_users = create_sample_users()
         result = transform_users(raw_users)
 
-        assert "user_id" in result.columns
-        assert "id" not in result.columns
+        assert "id" in result.columns
+        assert "source_user_id" in result.columns
         assert len(result) == 5
-        assert result["user_id"].tolist() == [f"user-{i}" for i in range(5)]
+        assert result["id"].tolist() == [1, 2, 3, 4, 5]
+        assert result["source_user_id"].tolist() == [f"user-{i}" for i in range(5)]
 
     def test_column_selection(self):
         """Test that only required columns are selected."""
@@ -137,7 +177,8 @@ class TestTransformUsers:
         result = transform_users(raw_users)
 
         expected_columns = {
-            "user_id",
+            "id",
+            "source_user_id",
             "email",
             "display_name",
             "avatar_url",
@@ -176,9 +217,10 @@ class TestTransformContent:
         raw_content = create_sample_content()
         result = transform_content(raw_content)
 
-        assert "content_id" in result.columns
-        assert "id" not in result.columns
+        assert "id" in result.columns
+        assert "source_content_id" in result.columns
         assert len(result) == 5
+        assert result["id"].tolist() == [1, 2, 3, 4, 5]
 
     def test_column_selection(self):
         """Test that only required columns are selected."""
@@ -186,7 +228,8 @@ class TestTransformContent:
         result = transform_content(raw_content)
 
         expected_columns = {
-            "content_id",
+            "id",
+            "source_content_id",
             "platform",
             "platform_id",
             "url",
@@ -213,7 +256,7 @@ class TestTransformContent:
     def test_missing_columns_error(self):
         """Test error handling for missing columns."""
         raw_content = create_sample_content()
-        raw_content = raw_content.drop(columns=["platform"])
+        raw_content = raw_content.drop(columns=["status"])
 
         with pytest.raises(ValueError, match="Missing required columns"):
             transform_content(raw_content)
@@ -228,9 +271,10 @@ class TestTransformPlaces:
         raw_places = create_sample_places()
         result = transform_places(raw_places)
 
-        assert "place_id" in result.columns
-        assert "id" not in result.columns
+        assert "id" in result.columns
+        assert "source_place_id" in result.columns
         assert len(result) == 5
+        assert result["id"].tolist() == [1, 2, 3, 4, 5]
 
     def test_column_selection(self):
         """Test that only required columns are selected."""
@@ -238,7 +282,8 @@ class TestTransformPlaces:
         result = transform_places(raw_places)
 
         expected_columns = {
-            "place_id",
+            "id",
+            "source_place_id",
             "google_maps_id",
             "english_display_name",
             "zhtw_display_name",
@@ -290,9 +335,10 @@ class TestTransformProperty:
         raw_property = create_sample_property_mapping()
         result = transform_property(raw_property)
 
-        assert "property_id" in result.columns
-        assert "id" not in result.columns
+        assert "id" in result.columns
+        assert "source_property_id" in result.columns
         assert len(result) == 5
+        assert result["id"].tolist() == [1, 2, 3, 4, 5]
 
     def test_column_selection(self):
         """Test that only required columns are selected."""
@@ -300,7 +346,8 @@ class TestTransformProperty:
         result = transform_property(raw_property)
 
         expected_columns = {
-            "property_id",
+            "id",
+            "source_property_id",
             "english_name",
             "zhtw_name",
             "emoji",
@@ -340,16 +387,22 @@ class TestTransformFactTable:
         """Test basic fact table transformation."""
         user_ids = [f"user-{i}" for i in range(3)]
         content_ids = [f"content-{i}" for i in range(3)]
+        place_ids = [f"place-{i}" for i in range(3)]
+        property_ids = [f"property-{i}" for i in range(3)]
 
         raw_user_contents = create_sample_user_contents(user_ids, content_ids)
+        raw_content_places = create_sample_content_places(content_ids, place_ids)
+        raw_place_properties = create_sample_place_properties(place_ids, property_ids)
 
-        user_id_map = {uid: uid for uid in user_ids}
-        content_id_map = {cid: cid for cid in content_ids}
-        place_id_map = {}
-        property_id_map = {}
+        user_id_map = {uid: i + 1 for i, uid in enumerate(user_ids)}
+        content_id_map = {cid: i + 1 for i, cid in enumerate(content_ids)}
+        place_id_map = {pid: i + 1 for i, pid in enumerate(place_ids)}
+        property_id_map = {pid: i + 1 for i, pid in enumerate(property_ids)}
 
         result = transform_fact_table(
             raw_user_contents,
+            raw_content_places,
+            raw_place_properties,
             user_id_map=user_id_map,
             content_id_map=content_id_map,
             place_id_map=place_id_map,
@@ -366,35 +419,44 @@ class TestTransformFactTable:
         """Test that ID mapping is applied correctly."""
         user_ids = ["user-1", "user-2"]
         content_ids = ["content-1", "content-2"]
+        place_ids = ["place-1"]
+        property_ids = ["property-1"]
 
         raw_user_contents = create_sample_user_contents(user_ids, content_ids)
+        raw_content_places = create_sample_content_places(content_ids, place_ids)
+        raw_place_properties = create_sample_place_properties(place_ids, property_ids)
 
-        user_id_map = {"user-1": "mapped-user-1", "user-2": "mapped-user-2"}
-        content_id_map = {
-            "content-1": "mapped-content-1",
-            "content-2": "mapped-content-2",
-        }
+        user_id_map = {"user-1": 1, "user-2": 2}
+        content_id_map = {"content-1": 1, "content-2": 2}
+        place_id_map = {"place-1": 1}
+        property_id_map = {"property-1": 1}
 
         result = transform_fact_table(
             raw_user_contents,
+            raw_content_places,
+            raw_place_properties,
             user_id_map=user_id_map,
             content_id_map=content_id_map,
-            place_id_map={},
-            property_id_map={},
+            place_id_map=place_id_map,
+            property_id_map=property_id_map,
         )
 
         # Check that IDs are mapped
-        assert "mapped-user-1" in result["user_id"].values
-        assert "mapped-content-1" in result["content_id"].values
+        assert 1 in result["user_id"].values
+        assert 1 in result["content_id"].values
 
     def test_missing_columns_error(self):
         """Test error handling for missing columns."""
         raw_user_contents = create_sample_user_contents(["user-1"], ["content-1"])
         raw_user_contents = raw_user_contents.drop(columns=["user_id"])
+        raw_content_places = pd.DataFrame(columns=["content_id", "place_id"])
+        raw_place_properties = pd.DataFrame(columns=["place_id", "property_id"])
 
         with pytest.raises(ValueError, match="Missing required columns"):
             transform_fact_table(
                 raw_user_contents,
+                raw_content_places,
+                raw_place_properties,
                 user_id_map={},
                 content_id_map={},
                 place_id_map={},
@@ -408,14 +470,19 @@ class TestTransformOrchestrator:
 
     def test_complete_transformation(self):
         """Test complete transformation of all tables."""
+        user_ids = [f"user-{i}" for i in range(3)]
+        content_ids = [f"content-{i}" for i in range(3)]
+        place_ids = [f"place-{i}" for i in range(3)]
+        property_ids = [f"property-{i}" for i in range(3)]
+
         raw_data = {
             "users": create_sample_users(3),
             "contents": create_sample_content(3),
             "places": create_sample_places(3),
             "property_mapping": create_sample_property_mapping(3),
-            "user_contents": create_sample_user_contents(
-                [f"user-{i}" for i in range(3)], [f"content-{i}" for i in range(3)]
-            ),
+            "user_contents": create_sample_user_contents(user_ids, content_ids),
+            "content_places": create_sample_content_places(content_ids, place_ids),
+            "place_properties": create_sample_place_properties(place_ids, property_ids),
         }
 
         result = transform(raw_data)
@@ -443,7 +510,7 @@ class TestTransformOrchestrator:
         raw_data = {
             "users": create_sample_users(),
             "contents": create_sample_content(),
-            # Missing places, property_mapping, and user_contents
+            # Missing places, property_mapping, user_contents, content_places, place_properties
         }
 
         with pytest.raises(ValueError, match="Missing required tables"):
@@ -457,7 +524,11 @@ class TestTransformOrchestrator:
                     "id",
                     "email",
                     "display_name",
+                    "first_name",
+                    "last_name",
                     "avatar_url",
+                    "gender",
+                    "provider",
                     "found_us_source",
                     "created_at",
                     "updated_at",
@@ -466,11 +537,14 @@ class TestTransformOrchestrator:
             "contents": pd.DataFrame(
                 columns=[
                     "id",
-                    "platform",
-                    "platform_id",
                     "url",
-                    "thumbnail_url",
+                    "html",
+                    "title",
                     "description",
+                    "site_name",
+                    "icon_url",
+                    "preview_image_url",
+                    "status",
                     "created_at",
                     "updated_at",
                 ]
@@ -481,11 +555,14 @@ class TestTransformOrchestrator:
                 columns=[
                     "user_id",
                     "content_id",
+                    "status",
                     "is_deleted",
                     "created_at",
                     "updated_at",
                 ]
             ),
+            "content_places": pd.DataFrame(columns=["content_id", "place_id"]),
+            "place_properties": pd.DataFrame(columns=["place_id", "property_id"]),
         }
 
         result = transform(raw_data)

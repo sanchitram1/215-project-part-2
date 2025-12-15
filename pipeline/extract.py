@@ -5,9 +5,8 @@ Extracts data from OLTP source database and returns DataFrames
 for each required table. Uses thread pooling for parallel extraction
 to maximize efficiency.
 
-NOTE: Uses SELECT * queries. Schema changes in source database
-will change output structure. It's fine for now, but in case the
-schema changes frequently, this will break
+Column selection is defined in config.OLTP_COLUMNS to ensure schema
+consistency between OLTP source and ETL pipeline transformations.
 """
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -16,6 +15,7 @@ import pandas as pd
 import psycopg2
 from dotenv import load_dotenv
 
+from pipeline.config import OLTP_COLUMNS
 from pipeline.database import get_oltp_connection_params
 from pipeline.logging_config import get_logger
 
@@ -31,15 +31,17 @@ TABLES_TO_EXTRACT = [
     "places",
     "property_mapping",
     "user_contents",
+    "content_places",
+    "place_properties",
 ]
 
 
 def extract_table(table_name: str, conn_params: dict) -> tuple[str, pd.DataFrame]:
     """
-    Extract all data from a single table.
+    Extract data from a single table using columns defined in config.
 
     Args:
-        table_name: Name of table to extract
+        table_name: Name of table to extract (must exist in OLTP_COLUMNS)
         conn_params: Dictionary with host, user, password, port, database
 
     Returns:
@@ -47,15 +49,18 @@ def extract_table(table_name: str, conn_params: dict) -> tuple[str, pd.DataFrame
 
     Raises:
         psycopg2.Error: If database connection or query fails
-        ValueError: If table extraction returns no data
-
-    TODO: Implement chunked reading for content table (use pd.read_sql_query with chunksize parameter).
-          The content table has large description fields that cause slow loading (~5 min).
-          Chunked reading would improve memory efficiency.
+        ValueError: If table extraction returns no data or table not in config
     """
     try:
+        if table_name not in OLTP_COLUMNS:
+            raise ValueError(f"Table '{table_name}' not found in OLTP_COLUMNS config")
+
+        # Build SELECT query with configured columns
+        columns = OLTP_COLUMNS[table_name]
+        col_list = ", ".join(columns)
+        query = f"SELECT {col_list} FROM {table_name}"
+
         with psycopg2.connect(**conn_params) as conn:
-            query = f"SELECT * FROM {table_name};"
             logger.debug(f"Executing query for table '{table_name}': {query}")
             df = pd.read_sql_query(query, conn)
 
@@ -63,6 +68,7 @@ def extract_table(table_name: str, conn_params: dict) -> tuple[str, pd.DataFrame
                 raise ValueError(f"Table '{table_name}' returned no rows")
 
             logger.info(f"Successfully fetched table '{table_name}' ({len(df)} rows)")
+            logger.debug(f"Columns for '{table_name}': {list(df.columns)}")
             return (table_name, df)
 
     except ValueError:
@@ -109,9 +115,3 @@ def extract_all() -> dict[str, pd.DataFrame]:
                 raise RuntimeError(f"Error extracting table '{table_name}': {e}") from e
 
     return results
-
-
-if __name__ == "__main__":
-    data = extract_all()
-    for k, v in data.items():
-        print(f"{k} has {v.shape} dimension")

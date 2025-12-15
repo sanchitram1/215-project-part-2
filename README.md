@@ -1,19 +1,23 @@
 # Voyla OLAP Database Project
 
-An OLAP (Online Analytical Processing) database implementation for voyla.world
-that enables analytical queries across user behavior, content, places, and
-properties.
+[![Tests Passing](https://img.shields.io/badge/tests-54%20passing-green)
+](https://github.com/sanchitram1/215-project-part-2/actions)
+[![Coverage](https://img.shields.io/badge/coverage-81%25-brightgreen)
+](https://github.com/sanchitram1/215-project-part-2)
+
+An OLAP (Online Analytical Processing) database implementation for voyla.world that
+enables analytical queries across user behavior, content, places, and properties.
 
 ## Project Description
 
 This project implements a complete data warehouse solution that:
 
 1. **Extracts** data from an OLTP (Online Transaction Processing) source
-   database
+database
 2. **Transforms** the data into a star schema optimized for analytics
 3. **Loads** the processed data into an OLAP PostgreSQL database
 4. **Visualizes** insights via a dashboard showing user clusters based on
-   content, place, and property dimensions
+content, place, and property dimensions
 
 ### Architecture
 
@@ -23,7 +27,7 @@ The OLAP schema uses a star schema design with:
 - **Dimension Tables:**
   - `users` - User information
   - `content` - Post/content data (likes, upload time, comments, social media
-    metrics)
+metrics)
   - `places` - Geographic locations (generated via GenAI and Google Maps API)
   - `property` - Property/listing information
 
@@ -41,26 +45,41 @@ For a visual overview, see `sql/OLAP schema.jpg`
 ### Installation
 
 1. **Clone the repository:**
-```bash git clone https://github.com/sanchitram1/215-project-part-2.git cd
-215-project-part-2 ```
+
+```bash
+git clone https://github.com/sanchitram1/215-project-part-2.git
+cd 215-project-part-2
+```
 
 2. **Set up Python environment with uv:**
-```bash # Install dependencies uv sync ```
+
+```bash 
+uv sync
+```
 
 3. **Configure database connection:**
-Create a `.env` file in the project root (or set environment variables): ```
-DB_HOST=localhost DB_USER=postgres DB_PASSWORD=your_password DB_NAME=olap_db ```
+Create a `.env` file in the project root (or set environment variables): 
 
-4. **Initialize the OLAP database schema:**
-```bash psql -U postgres -d olap_db -f sql/schema.sql ```
+```bash
+cp .env.example .env
+```
+
+Then set the environment variable values in `.env`
+
+#### Local Database
+
+To do this, you need to run a local instance of Postgres on your computer. Using 
+[xc](https://xcfile.dev) trviailizes this, as you can just run `xc db-start` and any
+of the xc tasks at the bottom of this README.
 
 ## Usage
 
 ### Running the ETL Pipeline
 
 Execute the complete ETL pipeline:
+
 ```bash
-python main.py
+uv run pipeline/main.py
 ```
 
 This will:
@@ -78,15 +97,12 @@ ruff format .
 
 **Code Quality Checks:**
 ```bash
-ruff check .
-ruff check . --fix  # Auto-fix issues
+ruff check . --fix
 ```
 
 **Running Tests:**
 ```bash
-pytest              # Run all tests
-pytest -v           # Verbose output
-pytest tests/test_transform.py  # Run specific test
+pytest .
 ```
 
 **Adding Dependencies:**
@@ -121,16 +137,18 @@ uv add package_name
 - **Package Manager:** `uv` (modern, fast Python package manager)
 - **Linting & Formatting:** `ruff` (fast Python linter and formatter)
 - **Testing:** `pytest` (Python testing framework)
-- **Database Driver:** `psycopg2` (PostgreSQL adapter)
+- **Database Driver:** `psycopg2` (PostgreSQL adapter), postgresql.org
 - **Data Processing:** pandas, numpy
 
 ## Core Modules
 
 ### pipeline/extract.py
+
 Handles connection to OLTP source database and retrieves raw data. Returns
 pandas DataFrames with unmodified source data.
 
 ### pipeline/transform.py
+
 Applies business logic and data transformation:
 - Data cleaning and validation
 - Deduplication
@@ -138,13 +156,15 @@ Applies business logic and data transformation:
 - Schema alignment with OLAP model
 
 ### pipeline/load.py
+
 Loads transformed data into OLAP database:
 - Inserts into dimension tables (users, content, places, property)
 - Inserts into fact table
 - Handles conflicts and duplicate prevention
 - Logs success/failure status
 
-### main.py
+### pipeline/main.py
+
 Orchestrates the complete pipeline:
 - Chains extract → transform → load
 - Handles configuration and environment setup
@@ -179,8 +199,7 @@ See `AGENTS.md` for detailed coding standards including:
 **Database Connection Error:**
 - Verify PostgreSQL is running
 - Check `.env` file has correct credentials
-- Ensure OLAP database is created: `psql -U postgres -c "CREATE DATABASE
-  olap_db"`
+- Ensure OLAP database is created: `psql -U postgres -c "CREATE DATABASE postgres"`
 
 **Import Errors:**
 - Run `uv sync` to ensure dependencies are installed
@@ -208,8 +227,9 @@ The dashboard provides visualization of user clusters based on:
 - **Property:** Association with specific properties
 
 Run the dashboard (implementation details in dashboard module):
+
 ```bash
-python -m dashboard  # Or specific dashboard command when available
+python dashboard.py
 ```
 
 ## License
@@ -226,8 +246,7 @@ For questions about coding standards or development workflow, refer to
 ### db-create
 
 ```bash
-mkdir -p data/db_files
-initdb -D data/db_files
+mkdir -p data/db_files initdb -D data/db_files
 ```
 
 ### db-start
@@ -240,4 +259,34 @@ pg_ctl -D data/db_files -l data/logfile start
 
 ```bash
 pg_ctl -D data/db_files stop
+```
+
+### db-kill
+
+Requires: db-stop
+
+```bash
+rm -rf data/db_files
+```
+
+### db-reset
+
+Requires: db-kill, db-create, db-start
+
+### migrate
+
+```bash
+psql $OLAP_DATABASE_URL -f sql/OLAP_schema.sql
+```
+
+### format
+
+```bash
+ruff format .
+```
+
+### lint
+
+```bash
+ruff check . --fix
 ```

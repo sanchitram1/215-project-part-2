@@ -10,10 +10,36 @@ dependencies = [
     "pandas>=2.3.3",
     "psycopg2>=2.9.11",
     "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
     "python-dotenv>=1.2.1",
     "ruff>=0.14.8",
     "sqlfluff>=3.5.0",
 ]
 
+[tool.ruff]
+line-length = 88
+
 [tool.setuptools]
 packages = ["pipeline"]
+
+[tool.pytest]
+minversion = "9.0"
+addopts = ["-ra", "-q", "--cov", "--cov-report=term-missing"]
+testpaths = [
+    "tests",
+]
+pythonpath = [
+    ".",
+]
+python_files = ["test_*.py", "*_test.py"]
+
+[tool.coverage.run]
+source = [
+    "pipeline"
+]
+omit = [
+    "*/__init__.py"
+]
+
+[tool.coverage.report]
+show_missing = true
