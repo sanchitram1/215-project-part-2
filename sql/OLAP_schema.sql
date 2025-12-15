@@ -3,7 +3,7 @@
 
 -- 1. Users Dimension Table
 CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY,
     source_user_id INTEGER UNIQUE NOT NULL,
     email TEXT,
     display_name TEXT,
@@ -18,7 +18,7 @@ CREATE INDEX idx_users_created ON users (created_at);
 
 -- 2. Places Dimension Table
 CREATE TABLE places (
-    id SERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY,
     source_place_id INTEGER UNIQUE NOT NULL,
     google_maps_id TEXT,
     english_display_name TEXT,
@@ -46,7 +46,7 @@ CREATE INDEX idx_places_coords ON places (latitude, longitude);
 
 -- 3. Content Dimension Table
 CREATE TABLE content (
-    id SERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY,
     source_content_id INTEGER UNIQUE NOT NULL,
     platform TEXT,
     platform_id TEXT,
@@ -62,7 +62,7 @@ CREATE INDEX idx_content_created ON content (created_at);
 
 -- 4. Property Dimension Table
 CREATE TABLE property (
-    id SERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY,
     source_property_id INTEGER UNIQUE NOT NULL,
     english_name TEXT,
     zhtw_name TEXT,

@@ -87,7 +87,8 @@ OLTP_COLUMNS = {
 # OLAP Target Columns (from OLAP_schema.sql)
 OLAP_COLUMNS = {
     "users": [
-        "user_id",
+        "id",
+        "source_user_id",
         "email",
         "display_name",
         "avatar_url",
@@ -96,7 +97,8 @@ OLAP_COLUMNS = {
         "updated_at",
     ],
     "content": [
-        "content_id",
+        "id",
+        "source_content_id",
         "platform",
         "platform_id",
         "url",
@@ -106,7 +108,8 @@ OLAP_COLUMNS = {
         "updated_at",
     ],
     "places": [
-        "place_id",
+        "id",
+        "source_place_id",
         "google_maps_id",
         "english_display_name",
         "zhtw_display_name",
@@ -126,7 +129,8 @@ OLAP_COLUMNS = {
         "updated_at",
     ],
     "property": [
-        "property_id",
+        "id",
+        "source_property_id",
         "english_name",
         "zhtw_name",
         "emoji",
@@ -139,6 +143,10 @@ OLAP_COLUMNS = {
         "content_id",
         "place_id",
         "property_id",
+        "source_user_id",
+        "source_content_id",
+        "source_place_id",
+        "source_property_id",
         "created_at",
         "updated_at",
     ],
