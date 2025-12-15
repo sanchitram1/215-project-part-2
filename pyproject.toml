@@ -32,9 +32,7 @@ python_files = ["test_*.py", "*_test.py"]
 
 [tool.coverage.run]
 source = [
-    "api",
-    "feature_engineering",
-    "spam"
+    "pipeline"
 ]
 omit = [
     "*/__init__.py"
