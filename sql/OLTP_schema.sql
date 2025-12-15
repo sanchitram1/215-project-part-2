@@ -137,3 +137,51 @@ CREATE TABLE public.user_contents (
 );
 CREATE INDEX idx_user_contents_created_at ON public.user_contents USING btree (created_at);
 CREATE INDEX idx_user_contents_user_id ON public.user_contents USING btree (user_id);
+
+-- public.content_places definition
+
+-- Drop table
+
+-- DROP TABLE public.content_places;
+
+CREATE TABLE public.content_places (
+	content_id uuid NOT NULL,
+	place_id uuid NOT NULL,
+	CONSTRAINT content_places_pkey PRIMARY KEY (content_id, place_id)
+);
+
+
+-- public.place_properties definition
+
+-- Drop table
+
+-- DROP TABLE public.place_properties;
+
+CREATE TABLE public.place_properties (
+	place_id uuid NOT NULL,
+	property_id int8 NOT NULL,
+	"rank" int4 NULL,
+	priority int4 DEFAULT 0 NOT NULL,
+	pinned bool DEFAULT false NOT NULL,
+	start_at timestamptz NULL,
+	end_at timestamptz NULL,
+	is_active bool DEFAULT true NOT NULL,
+	note text NULL,
+	created_at timestamptz DEFAULT now() NOT NULL,
+	updated_at timestamptz DEFAULT now() NOT NULL,
+	CONSTRAINT check_valid_rank CHECK (((rank IS NULL) OR (rank > 0))),
+	CONSTRAINT check_valid_time_range CHECK (((end_at IS NULL) OR (end_at >= start_at))),
+	CONSTRAINT place_properties_pkey PRIMARY KEY (place_id, property_id)
+);
+
+
+-- public.content_places foreign keys
+
+ALTER TABLE public.content_places ADD CONSTRAINT content_places_content_id_fkey FOREIGN KEY (content_id) REFERENCES public.contents(id);
+ALTER TABLE public.content_places ADD CONSTRAINT content_places_place_id_fkey FOREIGN KEY (place_id) REFERENCES public.places(id);
+
+
+-- public.place_properties foreign keys
+
+ALTER TABLE public.place_properties ADD CONSTRAINT place_properties_place_id_fkey FOREIGN KEY (place_id) REFERENCES public.places(id);
+ALTER TABLE public.place_properties ADD CONSTRAINT place_properties_property_id_fkey FOREIGN KEY (property_id) REFERENCES public.property_mapping(id);

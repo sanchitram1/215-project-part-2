@@ -79,7 +79,7 @@ CREATE TABLE interactions (
     id INTEGER PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     content_id INTEGER NOT NULL REFERENCES content (id) ON DELETE CASCADE,
-    place_id INTEGER NOT NULL REFERENCES places (id) ON DELETE CASCADE,
+    place_id INTEGER REFERENCES places (id) ON DELETE SET NULL,
     property_id INTEGER REFERENCES property (id) ON DELETE SET NULL,
     created_at TIMESTAMP,
     updated_at TIMESTAMP
