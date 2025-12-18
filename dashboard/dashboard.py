@@ -1,67 +1,46 @@
-import os
-import re
+from datetime import datetime, timedelta
 
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import psycopg2
 import streamlit as st
-from dotenv import load_dotenv
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
+from plotly.subplots import make_subplots
 
-load_dotenv()
+st.set_page_config(page_title="Voyla Executive Dashboard", layout="wide")
 
-
-# Function to remove emojis from text
-def remove_emojis(text):
-    if pd.isna(text):
-        return text
-    emoji_pattern = re.compile(
-        "["
-        "\U0001f600-\U0001f64f"  # emoticons
-        "\U0001f300-\U0001f5ff"  # symbols & pictographs
-        "\U0001f680-\U0001f6ff"  # transport & map symbols
-        "\U0001f1e0-\U0001f1ff"  # flags (iOS)
-        "\U00002702-\U000027b0"
-        "\U000024c2-\U0001f251"
-        "\U0001f900-\U0001f9ff"  # supplemental symbols
-        "\U00002600-\U000026ff"  # misc symbols
-        "]+",
-        flags=re.UNICODE,
-    )
-    return emoji_pattern.sub(r"", text).strip()
-
-
-st.set_page_config(page_title="Voyla Dashboard", layout="wide")
-
-# Title
-st.title("Voyla Analytics Dashboard")
-st.markdown("User behavior and interaction analysis")
+st.title("Voyla Executive Dashboard")
+st.markdown("**Actionable Business Intelligence** - From Metrics to Decisions")
 
 
 # Database connection
 @st.cache_resource
 def get_conn():
     try:
-        conn = psycopg2.connect(os.getenv("OLAP_DATABASE_URL"))
+        conn = psycopg2.connect(
+            "postgresql://postgres:We<3ProfKerger25@35.202.134.206:5432/postgres"
+        )
         return conn
     except Exception as e:
         st.error(f"Connection error: {e}")
         return None
 
 
-# Load data
+# Load main data with user signup dates
 @st.cache_data(ttl=600)
-def load_data(_conn):
+def load_data():
+    conn = psycopg2.connect(
+        "postgresql://postgres:We<3ProfKerger25@35.202.134.206:5432/postgres"
+    )
     query = """
     SELECT 
         i.id as interaction_id,
         i.user_id,
         u.display_name as username,
         u.email,
+        u.created_at as user_signup_date,
         i.content_id,
         c.platform,
-        c.url as content_url,
         i.place_id,
         p.english_display_name as place_name,
         p.english_locality as city,
@@ -74,7 +53,6 @@ def load_data(_conn):
         i.property_id,
         pr.english_name as property_name,
         pr.category_type as property_category,
-        pr.emoji as property_emoji,
         i.created_at as interaction_date
     FROM interactions i
     LEFT JOIN users u ON i.user_id = u.id
@@ -82,7 +60,9 @@ def load_data(_conn):
     LEFT JOIN places p ON i.place_id = p.id
     LEFT JOIN property pr ON i.property_id = pr.id
     """
-    return pd.read_sql(query, _conn)
+    df = pd.read_sql(query, conn)
+    conn.close()
+    return df
 
 
 # Connect and load
@@ -91,348 +71,526 @@ if conn is None:
     st.stop()
 
 with st.spinner("Loading data..."):
-    df = load_data(conn)
+    df = load_data()
+
+# Close the initial connection check
+conn.close()
 
 if df.empty:
     st.error("No data found in database")
     st.stop()
 
-# Remove emojis from text columns
-text_columns = [
-    "username",
-    "place_name",
-    "city",
-    "state",
-    "property_name",
-    "property_category",
-]
-for col in text_columns:
-    if col in df.columns:
-        df[col] = df[col].apply(remove_emojis)
-
 # Parse dates
 df["interaction_date"] = pd.to_datetime(df["interaction_date"])
+df["user_signup_date"] = pd.to_datetime(df["user_signup_date"])
 df["date"] = df["interaction_date"].dt.date
-df["month"] = df["interaction_date"].dt.to_period("M").astype(str)
-
-# Sidebar controls
-st.sidebar.header("Controls")
-n_clusters = st.sidebar.slider("Number of User Clusters", 2, 10, 4)
-show_data = st.sidebar.checkbox("Show Raw Data")
-
-# Key metrics
-st.header("Key Metrics")
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    st.metric("Total Users", f"{df['user_id'].nunique():,}")
-with col2:
-    st.metric("Total Interactions", f"{len(df):,}")
-with col3:
-    st.metric("Unique Places", f"{df['place_id'].nunique():,}")
-with col4:
-    st.metric("Unique Properties", f"{df['property_id'].nunique():,}")
+df["interaction_month"] = df["interaction_date"].dt.to_period("M")
+df["signup_month"] = df["user_signup_date"].dt.to_period("M")
 
 # Create tabs
-tab1, tab2, tab3, tab4 = st.tabs(
-    ["Activity Overview", "User Clusters", "Geography", "Properties"]
+tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    [
+        "Overview",
+        "User Segmentation",
+        "Geographic Expansion",
+        "Monthly Growth",
+        "Cohort Retention",
+    ]
 )
 
-# Tab 1: Activity Overview
+# ============================================================================
+# TAB 1: OVERVIEW
+# ============================================================================
 with tab1:
-    st.subheader("Interaction Timeline")
+    st.header("Key Metrics")
+    col1, col2, col3, col4 = st.columns(4)
 
-    # Daily interactions
-    daily_interactions = df.groupby("date").size().reset_index(name="count")
-    fig = px.line(
-        daily_interactions,
-        x="date",
-        y="count",
-        title="Daily Interactions",
-        labels={"date": "Date", "count": "Number of Interactions"},
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    with col1:
+        st.metric("Total Users", f"{df['user_id'].nunique():,}")
+    with col2:
+        st.metric("Total Saves", f"{len(df):,}")
+    with col3:
+        st.metric("Unique Places", f"{df['place_id'].nunique():,}")
+    with col4:
+        avg_saves = len(df) / df["user_id"].nunique()
+        st.metric("Avg Saves/User", f"{avg_saves:.1f}")
 
+    st.markdown("---")
+
+    # Daily and Monthly interaction timelines
     col1, col2 = st.columns(2)
 
     with col1:
-        # Monthly interactions
-        monthly_interactions = df.groupby("month").size().reset_index(name="count")
+        st.subheader("Daily Save Activity")
+        daily_interactions = df.groupby("date").size().reset_index(name="count")
+        fig = px.line(
+            daily_interactions,
+            x="date",
+            y="count",
+            title="Daily Saves Over Time",
+            labels={"date": "Date", "count": "Number of Saves"},
+        )
+        fig.update_traces(line_color="#1f77b4")
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col2:
+        st.subheader("Monthly Save Activity")
+        monthly_interactions = (
+            df.groupby("interaction_month").size().reset_index(name="count")
+        )
+        monthly_interactions["month"] = monthly_interactions[
+            "interaction_month"
+        ].astype(str)
         fig = px.bar(
             monthly_interactions,
             x="month",
             y="count",
-            title="Monthly Interactions",
-            labels={"month": "Month", "count": "Interactions"},
+            title="Monthly Saves",
+            labels={"month": "Month", "count": "Saves"},
         )
+        fig.update_traces(marker_color="#2ca02c")
+        st.plotly_chart(fig, use_container_width=True)
+
+    # Top active users and platform distribution
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("Most Active Users")
+        user_activity = (
+            df.groupby(["user_id", "username"]).size().reset_index(name="saves")
+        )
+        user_activity = user_activity.sort_values("saves", ascending=False).head(10)
+
+        fig = px.bar(
+            user_activity,
+            x="saves",
+            y="username",
+            orientation="h",
+            title="Top 10 Users by Saves",
+            labels={"saves": "Number of Saves", "username": "User"},
+        )
+        fig.update_traces(marker_color="#ff7f0e")
         st.plotly_chart(fig, use_container_width=True)
 
     with col2:
-        # Platform distribution
+        st.subheader("Content Platform Distribution")
         if df["platform"].notna().sum() > 0:
             platform_counts = df["platform"].value_counts()
             fig = px.pie(
                 values=platform_counts.values,
                 names=platform_counts.index,
-                title="Content by Platform",
+                title="Saves by Platform",
             )
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No platform data available")
 
-    # Top active users
-    st.subheader("Most Active Users")
-    user_activity = (
-        df.groupby(["user_id", "username"]).size().reset_index(name="interactions")
-    )
-    user_activity = user_activity.sort_values("interactions", ascending=False).head(10)
-
-    fig = px.bar(
-        user_activity,
-        x="interactions",
-        y="username",
-        orientation="h",
-        title="Top 10 Users by Interactions",
-        labels={"interactions": "Number of Interactions", "username": "User"},
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-# Tab 2: User Clustering
+# ============================================================================
+# TAB 2: USER SEGMENTATION
+# ============================================================================
 with tab2:
-    st.subheader("User Behavior Clustering")
+    st.header("User Segmentation - Product Prioritization")
+    st.markdown(
+        "**Business Question:** Should we prioritize power user features or onboarding optimization?"
+    )
 
-    # Aggregate by user
-    user_stats = (
-        df.groupby("user_id")
-        .agg(
-            {
-                "interaction_id": "count",  # Total interactions
-                "place_id": "nunique",  # Unique places visited
-                "property_id": "nunique",  # Unique properties interacted with
-                "content_id": "nunique",  # Unique content
-            }
+    # Time period filter
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        time_filter = st.selectbox(
+            "Time Period", ["All Time", "Last 90 Days", "Last 30 Days"], index=0
         )
+
+    # Apply time filter
+    df_filtered = df.copy()
+    if time_filter == "Last 30 Days":
+        cutoff_date = datetime.now() - timedelta(days=30)
+        df_filtered = df_filtered[df_filtered["interaction_date"] >= cutoff_date]
+    elif time_filter == "Last 90 Days":
+        cutoff_date = datetime.now() - timedelta(days=90)
+        df_filtered = df_filtered[df_filtered["interaction_date"] >= cutoff_date]
+
+    # Calculate user saves and segments
+    user_saves = df_filtered.groupby("user_id").size().reset_index(name="saves")
+
+    def categorize_user(saves):
+        if saves >= 100:
+            return "Power User"
+        elif saves >= 20:
+            return "Casual User"
+        else:
+            return "New User"
+
+    user_saves["segment"] = user_saves["saves"].apply(categorize_user)
+
+    # Calculate segment statistics
+    segment_counts = user_saves["segment"].value_counts()
+    segment_stats = pd.DataFrame(
+        {
+            "Segment": segment_counts.index,
+            "User Count": segment_counts.values,
+            "% of Total": (segment_counts.values / len(user_saves) * 100).round(1),
+        }
+    )
+
+    # Order segments properly
+    segment_order = ["Power User", "Casual User", "New User"]
+    segment_stats["Segment"] = pd.Categorical(
+        segment_stats["Segment"], categories=segment_order, ordered=True
+    )
+    segment_stats = segment_stats.sort_values("Segment")
+
+    # Define save ranges for display
+    save_ranges = {
+        "Power User": "100+ saves",
+        "Casual User": "20-99 saves",
+        "New User": "0-19 saves",
+    }
+    segment_stats["Saves Range"] = segment_stats["Segment"].map(save_ranges)
+
+    # Display metrics
+    col1, col2, col3 = st.columns(3)
+
+    for idx, (col, segment) in enumerate(zip([col1, col2, col3], segment_order)):
+        segment_data = segment_stats[segment_stats["Segment"] == segment]
+        if not segment_data.empty:
+            count = segment_data["User Count"].values[0]
+            pct = segment_data["% of Total"].values[0]
+            with col:
+                st.metric(segment, f"{count:,} users", f"{pct}% of total")
+
+    # Visualization
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        # Pie chart
+        colors = {
+            "Power User": "#d62728",
+            "Casual User": "#ff7f0e",
+            "New User": "#1f77b4",
+        }
+        fig = px.pie(
+            segment_stats,
+            values="User Count",
+            names="Segment",
+            title="User Distribution by Segment",
+            color="Segment",
+            color_discrete_map=colors,
+        )
+        fig.update_traces(textposition="inside", textinfo="percent+label")
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col2:
+        st.markdown("### Segment Details")
+        st.dataframe(
+            segment_stats[["Segment", "User Count", "% of Total", "Saves Range"]],
+            hide_index=True,
+            use_container_width=True,
+        )
+
+# ============================================================================
+# TAB 3: GEOGRAPHIC EXPANSION
+# ============================================================================
+with tab3:
+    st.header("Geographic Expansion - Market Strategy")
+    st.markdown(
+        "**Business Question:** Which market should we expand to next? When should we localize?"
+    )
+
+    # Calculate active users per country
+    country_users = (
+        df.groupby("country")
+        .agg({"user_id": "nunique", "place_id": "nunique", "interaction_id": "count"})
         .reset_index()
     )
+    country_users.columns = ["Country", "Active Users", "Unique Places", "Total Saves"]
+    country_users = country_users.sort_values("Active Users", ascending=False).head(15)
+    country_users["% of Total Users"] = (
+        country_users["Active Users"] / df["user_id"].nunique() * 100
+    ).round(1)
 
-    user_stats.columns = [
-        "user_id",
-        "total_interactions",
-        "unique_places",
-        "unique_properties",
-        "unique_content",
-    ]
+    # Display top 5 metrics
+    st.subheader("Top 5 Markets")
+    cols = st.columns(5)
+    for i, (idx, row) in enumerate(country_users.head(5).iterrows()):
+        with cols[i]:
+            st.metric(
+                row["Country"],
+                f"{row['Active Users']:,} users",
+                f"{row['% of Total Users']}%",
+            )
 
-    # Only cluster if we have enough users
-    if len(user_stats) < n_clusters:
-        st.warning(
-            f"Not enough users ({len(user_stats)}) for {n_clusters} clusters. Showing data without clustering."
+    st.markdown("---")
+
+    # Bar chart
+    fig = px.bar(
+        country_users,
+        x="Active Users",
+        y="Country",
+        orientation="h",
+        title="Top 15 Countries by Active Users",
+        labels={"Active Users": "Number of Active Users", "Country": "Country"},
+        text="Active Users",
+    )
+    fig.update_traces(
+        marker_color="#2ca02c", texttemplate="%{text:,}", textposition="outside"
+    )
+    fig.update_layout(height=600, yaxis={"categoryorder": "total ascending"})
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Data table
+    st.subheader("Market Details")
+    st.dataframe(
+        country_users[
+            [
+                "Country",
+                "Active Users",
+                "% of Total Users",
+                "Unique Places",
+                "Total Saves",
+            ]
+        ],
+        hide_index=True,
+        use_container_width=True,
+    )
+
+# ============================================================================
+# TAB 4: MONTHLY GROWTH
+# ============================================================================
+with tab4:
+    st.header("Monthly Growth Trajectory - Viral Mechanism Analysis")
+    st.markdown(
+        "**Business Question:** What drove growth spikes? Can we replicate them?"
+    )
+
+    # Calculate new users per month (by signup date)
+    new_users_monthly = df.groupby("signup_month")["user_id"].nunique().reset_index()
+    new_users_monthly.columns = ["Month", "New Users"]
+    new_users_monthly["Month"] = new_users_monthly["Month"].astype(str)
+    new_users_monthly["Cumulative Users"] = new_users_monthly["New Users"].cumsum()
+
+    # Calculate total interactions per month
+    interactions_monthly = (
+        df.groupby("interaction_month").size().reset_index(name="Total Interactions")
+    )
+    interactions_monthly["Month"] = interactions_monthly["interaction_month"].astype(
+        str
+    )
+
+    # Merge datasets
+    growth_data = new_users_monthly.merge(
+        interactions_monthly[["Month", "Total Interactions"]], on="Month", how="left"
+    )
+    growth_data["Total Interactions"] = (
+        growth_data["Total Interactions"].fillna(0).astype(int)
+    )
+
+    # Calculate growth rates
+    growth_data["Growth Rate"] = growth_data["New Users"].pct_change() * 100
+    growth_data["Growth Rate"] = growth_data["Growth Rate"].fillna(0).round(1)
+
+    # Display key metrics
+    col1, col2, col3, col4 = st.columns(4)
+
+    total_users = growth_data["New Users"].sum()
+    total_interactions = growth_data["Total Interactions"].sum()
+    peak_month = growth_data.loc[growth_data["New Users"].idxmax()]
+    latest_month = growth_data.iloc[-1]
+
+    with col1:
+        st.metric("Total Users", f"{total_users:,}")
+    with col2:
+        st.metric("Total Interactions", f"{total_interactions:,}")
+    with col3:
+        st.metric(
+            "Peak Growth Month",
+            peak_month["Month"],
+            f"{peak_month['New Users']:,} users",
         )
-        st.dataframe(user_stats, use_container_width=True)
-    else:
-        # Perform clustering
-        features = [
-            "total_interactions",
-            "unique_places",
-            "unique_properties",
-            "unique_content",
-        ]
-        scaler = StandardScaler()
-        scaled_features = scaler.fit_transform(user_stats[features])
+    with col4:
+        st.metric("Latest Month Growth", f"{latest_month['Growth Rate']:.1f}%")
 
-        kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
-        user_stats["cluster"] = kmeans.fit_predict(scaled_features)
+    st.markdown("---")
 
-        # Show cluster sizes
-        cluster_counts = user_stats["cluster"].value_counts().sort_index()
-        st.write(f"**Cluster Distribution:** {dict(cluster_counts)}")
+    # Dual-axis chart
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
 
-        # Visualizations
-        col1, col2 = st.columns(2)
+    # Add new users bars
+    fig.add_trace(
+        go.Bar(
+            x=growth_data["Month"],
+            y=growth_data["New Users"],
+            name="New Users",
+            marker_color="#1f77b4",
+            text=growth_data["New Users"],
+            texttemplate="%{text:,}",
+            textposition="outside",
+        ),
+        secondary_y=False,
+    )
+
+    # Add cumulative users line
+    fig.add_trace(
+        go.Scatter(
+            x=growth_data["Month"],
+            y=growth_data["Cumulative Users"],
+            name="Cumulative Users",
+            mode="lines+markers",
+            line=dict(color="#ff7f0e", width=3),
+            marker=dict(size=8),
+        ),
+        secondary_y=True,
+    )
+
+    fig.update_layout(
+        title="Monthly Growth: New Users & Cumulative Total",
+        xaxis_title="Month",
+        hovermode="x unified",
+        height=500,
+    )
+
+    fig.update_yaxes(title_text="New Users (Bars)", secondary_y=False)
+    fig.update_yaxes(title_text="Cumulative Users (Line)", secondary_y=True)
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Growth data table
+    st.subheader("Monthly Growth Details")
+    growth_display = growth_data[
+        ["Month", "New Users", "Cumulative Users", "Growth Rate", "Total Interactions"]
+    ].copy()
+    growth_display["Growth Rate"] = growth_display["Growth Rate"].apply(
+        lambda x: f"{x:+.1f}%"
+    )
+    st.dataframe(growth_display, hide_index=True, use_container_width=True)
+
+# ============================================================================
+# TAB 5: COHORT RETENTION
+# ============================================================================
+with tab5:
+    st.header("Cohort Retention Analysis - Re-engagement Timing")
+    st.markdown(
+        "**Business Question:** When should we trigger re-engagement notifications to prevent churn?"
+    )
+
+    # Get unique users with their signup month
+    user_cohorts = df[["user_id", "signup_month"]].drop_duplicates()
+
+    # For each user, find which months they were active (had interactions)
+    user_activity = (
+        df.groupby(["user_id", "interaction_month"])
+        .size()
+        .reset_index(name="interactions")
+    )
+
+    # Merge to get signup month for each activity
+    user_activity = user_activity.merge(user_cohorts, on="user_id")
+
+    # Calculate months since signup
+    user_activity["months_since_signup"] = (
+        user_activity["interaction_month"].dt.to_timestamp().dt.to_period("M")
+        - user_activity["signup_month"]
+    ).apply(lambda x: x.n)
+
+    # Create cohort retention matrix
+    cohort_data = []
+    cohort_months = sorted(df["signup_month"].unique())
+
+    for cohort in cohort_months:
+        cohort_users = user_cohorts[user_cohorts["signup_month"] == cohort]
+        cohort_size = len(cohort_users)
+
+        row = {"Cohort": str(cohort), "Cohort Size": cohort_size}
+
+        # Calculate retention for M0, M1, M3, M6
+        for month_offset in [0, 1, 3, 6]:
+            active_users = user_activity[
+                (user_activity["signup_month"] == cohort)
+                & (user_activity["months_since_signup"] == month_offset)
+            ]["user_id"].nunique()
+
+            retention_pct = (active_users / cohort_size * 100) if cohort_size > 0 else 0
+            row[f"M{month_offset}"] = retention_pct
+
+        cohort_data.append(row)
+
+    cohort_df = pd.DataFrame(cohort_data)
+
+    # Display summary metrics
+    if not cohort_df.empty:
+        col1, col2, col3, col4 = st.columns(4)
+
+        avg_m0 = cohort_df["M0"].mean()
+        avg_m1 = cohort_df["M1"].mean()
+        avg_m3 = cohort_df["M3"].mean() if "M3" in cohort_df.columns else 0
+        avg_m6 = cohort_df["M6"].mean() if "M6" in cohort_df.columns else 0
 
         with col1:
-            fig = px.scatter(
-                user_stats,
-                x="total_interactions",
-                y="unique_places",
-                color="cluster",
-                size="unique_properties",
-                title="User Clusters: Activity vs Exploration",
-                labels={
-                    "total_interactions": "Total Interactions",
-                    "unique_places": "Unique Places Visited",
-                    "cluster": "Cluster",
-                },
-            )
-            st.plotly_chart(fig, use_container_width=True)
-
+            st.metric("Avg M0 Retention", f"{avg_m0:.1f}%")
         with col2:
-            fig = px.pie(
-                values=cluster_counts.values,
-                names=cluster_counts.index,
-                title="Users per Cluster",
-            )
-            st.plotly_chart(fig, use_container_width=True)
-
-        # Cluster statistics
-        st.subheader("Cluster Characteristics")
-        cluster_summary = user_stats.groupby("cluster")[features].mean().round(2)
-        cluster_summary["user_count"] = cluster_counts
-        st.dataframe(cluster_summary, use_container_width=True)
-
-        # Cluster profiles
-        st.subheader("Cluster Profiles")
-        for cluster in sorted(user_stats["cluster"].unique()):
-            stats = cluster_summary.loc[cluster]
-            if stats["total_interactions"] > user_stats["total_interactions"].median():
-                profile = "High Activity"
+            st.metric("Avg M1 Retention", f"{avg_m1:.1f}%", f"{avg_m1 - avg_m0:.1f}%")
+        with col3:
+            if avg_m3 > 0:
+                st.metric(
+                    "Avg M3 Retention", f"{avg_m3:.1f}%", f"{avg_m3 - avg_m1:.1f}%"
+                )
             else:
-                profile = "Casual User"
-
-            if stats["unique_places"] > user_stats["unique_places"].median():
-                profile += ", Explorer"
+                st.metric("Avg M3 Retention", "N/A")
+        with col4:
+            if avg_m6 > 0:
+                st.metric(
+                    "Avg M6 Retention", f"{avg_m6:.1f}%", f"{avg_m6 - avg_m3:.1f}%"
+                )
             else:
-                profile += ", Focused"
+                st.metric("Avg M6 Retention", "N/A")
 
-            st.write(
-                f"**Cluster {cluster}**: {profile} ({int(stats['user_count'])} users)"
+    st.markdown("---")
+
+    # Create heatmap
+    if not cohort_df.empty:
+        # Prepare data for heatmap
+        retention_cols = ["M0", "M1", "M3", "M6"]
+        available_cols = [col for col in retention_cols if col in cohort_df.columns]
+
+        heatmap_data = cohort_df[["Cohort"] + available_cols].set_index("Cohort")
+
+        fig = go.Figure(
+            data=go.Heatmap(
+                z=heatmap_data.values,
+                x=heatmap_data.columns,
+                y=heatmap_data.index,
+                colorscale="RdYlGn",
+                text=heatmap_data.values.round(1),
+                texttemplate="%{text}%",
+                textfont={"size": 12},
+                colorbar=dict(title="Retention %"),
             )
-
-# Tab 3: Geography
-with tab3:
-    st.subheader("Geographic Distribution")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        # Top cities
-        if df["city"].notna().sum() > 0:
-            city_counts = df["city"].value_counts().head(10)
-            fig = px.bar(
-                x=city_counts.values,
-                y=city_counts.index,
-                orientation="h",
-                title="Top 10 Cities by Activity",
-                labels={"x": "Number of Interactions", "y": "City"},
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("No city data available")
-
-    with col2:
-        # Top states
-        if df["state"].notna().sum() > 0:
-            state_counts = df["state"].value_counts().head(10)
-            fig = px.bar(
-                x=state_counts.values,
-                y=state_counts.index,
-                orientation="h",
-                title="Top 10 States by Activity",
-                labels={"x": "Number of Interactions", "y": "State"},
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("No state data available")
-
-    # Place types
-    st.subheader("Popular Place Types")
-    if df["place_type"].notna().sum() > 0:
-        place_type_counts = df["place_type"].value_counts().head(15)
-        fig = px.bar(
-            x=place_type_counts.values,
-            y=place_type_counts.index,
-            orientation="h",
-            title="Top 15 Place Types",
-            labels={"x": "Number of Interactions", "y": "Place Type"},
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("No place type data available")
-
-    # Top rated places
-    st.subheader("Highly Rated Places")
-    if df["place_rating"].notna().sum() > 0:
-        top_places = (
-            df[df["place_rating"].notna()]
-            .groupby("place_name")
-            .agg({"place_rating": "first", "interaction_id": "count"})
-            .rename(columns={"interaction_id": "interactions"})
-        )
-        top_places = (
-            top_places[top_places["interactions"] >= 2]
-            .sort_values("place_rating", ascending=False)
-            .head(10)
         )
 
-        fig = px.bar(
-            top_places.reset_index(),
-            x="place_rating",
-            y="place_name",
-            orientation="h",
-            title="Top Rated Places (with 2+ interactions)",
-            labels={"place_rating": "Rating", "place_name": "Place"},
+        fig.update_layout(
+            title="Cohort Retention Heatmap",
+            xaxis_title="Months Since Signup",
+            yaxis_title="Signup Cohort",
+            height=400,
         )
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("No rating data available")
 
-# Tab 4: Properties
-with tab4:
-    st.subheader("Property Analysis")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        # Property categories
-        if df["property_category"].notna().sum() > 0:
-            category_counts = df["property_category"].value_counts()
-            fig = px.pie(
-                values=category_counts.values,
-                names=category_counts.index,
-                title="Distribution by Property Category",
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("No property category data available")
-
-    with col2:
-        # Top properties
-        property_counts = df["property_name"].value_counts().head(10)
-        fig = px.bar(
-            x=property_counts.values,
-            y=property_counts.index,
-            orientation="h",
-            title="Top 10 Properties by Interactions",
-            labels={"x": "Interactions", "y": "Property"},
-        )
         st.plotly_chart(fig, use_container_width=True)
 
-    # Property interaction summary
-    st.subheader("Popular Property Types")
-    if df["property_name"].notna().sum() > 0:
-        property_summary = df.groupby("property_name").size().reset_index(name="count")
-        property_summary = property_summary.sort_values("count", ascending=False).head(
-            20
-        )
-
-        st.write("Most popular properties:")
-        for _, row in property_summary.iterrows():
-            st.write(f"**{row['property_name']}**: {row['count']} interactions")
-
-# Show raw data if requested
-if show_data:
-    st.header("Raw Data")
-    st.dataframe(df, use_container_width=True)
-
-    # Download button
-    csv = df.to_csv(index=False)
-    st.download_button(
-        "Download Data as CSV", csv, "voyla_interactions.csv", "text/csv"
-    )
+    # Retention table
+    st.subheader("Cohort Retention Details")
+    display_df = cohort_df.copy()
+    for col in ["M0", "M1", "M3", "M6"]:
+        if col in display_df.columns:
+            display_df[col] = display_df[col].apply(lambda x: f"{x:.1f}%")
+    st.dataframe(display_df, hide_index=True, use_container_width=True)
 
 # Footer
 st.sidebar.markdown("---")
-st.sidebar.markdown("**Voyla Analytics** v2.0")
-st.sidebar.info(
-    f"{len(df):,} interactions | {df['user_id'].nunique()} users | {df['place_id'].nunique()} places"
-)
+st.sidebar.markdown("**Voyla Executive Dashboard** v3.0")
+st.sidebar.info(f"""
+**Data Summary**
+- {len(df):,} total saves
+- {df["user_id"].nunique():,} users
+- {df["place_id"].nunique():,} places
+- Date Range: {df["date"].min()} to {df["date"].max()}
+""")
