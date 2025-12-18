@@ -8,12 +8,15 @@ dependencies = [
     "formdt>=0.4.0",
     "numpy>=2.3.5",
     "pandas>=2.3.3",
+    "plotly>=6.5.0",
     "psycopg2>=2.9.11",
     "pytest>=9.0.2",
     "pytest-cov>=7.0.0",
     "python-dotenv>=1.2.1",
     "ruff>=0.14.8",
+    "scikit-learn>=1.8.0",
     "sqlfluff>=3.5.0",
+    "streamlit>=1.52.2",
 ]
 
 [tool.ruff]
