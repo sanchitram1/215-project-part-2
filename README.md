@@ -1,7 +1,6 @@
 # Voyla OLAP Database Project
 
-[![Tests Passing](https://img.shields.io/badge/tests-54%20passing-green)
-](https://github.com/sanchitram1/215-project-part-2/actions)
+[![CI](https://github.com/sanchitram1/215-project-part-2/actions/workflows/ci.yml/badge.svg)](https://github.com/sanchitram1/215-project-part-2/actions/workflows/ci.yml)
 [![Coverage](https://coveralls.io/repos/github/sanchitram1/215-project-part-2/badge.svg?branch=main)](https://coveralls.io/github/sanchitram1/215-project-part-2?branch=main)
 
 An OLAP (Online Analytical Processing) database implementation for voyla.world that
